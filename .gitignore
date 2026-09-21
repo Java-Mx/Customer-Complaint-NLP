@@ -1,0 +1,91 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# Operating System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE & Editor configs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Datasets & Data files (do not commit raw data)
+data/*.csv
+data/*.tsv
+data/*.json
+data/*.parquet
+data/*.zip
+data/*.tar.gz
+data/*.gz
+*.csv
+*.tsv
+
+# Preserve tracking of .gitkeep and documentation in data folder
+!data/.gitkeep
+!data/README.md
+
+# Trained models & serialized artifacts
+models/*.pkl
+models/*.joblib
+models/*.pt
+models/*.bin
+models/*.onnx
+!models/.gitkeep
+
+# Evaluation results & generated plots/metrics
+results/*.png
+results/*.jpg
+results/*.jpeg
+results/*.svg
+results/*.pdf
+results/*.csv
+results/*.json
+!results/.gitkeep
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
