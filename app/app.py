@@ -4,7 +4,14 @@ Provides an interactive user interface to explore complaints, demonstrate prepro
 TF-IDF vectorisation, cosine-similarity-based retrieval, and supervised complaint classification.
 """
 
+import sys
 from pathlib import Path
+
+# Ensure project root is on sys.path before importing from src
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 import joblib
 import numpy as np
 import pandas as pd
@@ -44,7 +51,7 @@ st.markdown(
 @st.cache_data
 def load_cached_corpus():
     """Load and index a manageable sample of complaints for real-time similarity search."""
-    data_path = Path("data/complaints.csv")
+    data_path = ROOT_DIR / "data" / "complaints.csv"
     if data_path.exists():
         df = load_dataset(data_path, nrows=300, drop_invalid=True)
         clean_narratives = preprocess_series(df["text"])
@@ -73,8 +80,8 @@ def load_cached_corpus():
 @st.cache_resource
 def load_cached_classifier():
     """Load or train a cached Logistic Regression model and vectorizer for live inference."""
-    model_path = Path("models/complaint_classifier.joblib")
-    vec_path = Path("models/tfidf_vectorizer.joblib")
+    model_path = ROOT_DIR / "models" / "complaint_classifier.joblib"
+    vec_path = ROOT_DIR / "models" / "tfidf_vectorizer.joblib"
 
     if model_path.exists() and vec_path.exists():
         try:
@@ -85,7 +92,7 @@ def load_cached_classifier():
             pass
 
     # Fallback to local training on complaints.csv sample if serialized files unavailable
-    data_path = Path("data/complaints.csv")
+    data_path = ROOT_DIR / "data" / "complaints.csv"
     if data_path.exists():
         df = load_dataset(data_path, nrows=2000, drop_invalid=True)
         X_train, _, y_train, _ = train_test_split_data(df, test_size=0.20, random_state=42, stratify=True)
