@@ -1,10 +1,11 @@
 """Streamlit Web Application for Customer Complaint Similarity & Categorisation.
 
-Provides an interactive user interface to explore complaints, predict product categories,
-and retrieve historically similar grievances using classical NLP and Machine Learning.
+Provides an interactive user interface to explore complaints, demonstrate preprocessing,
+predict product categories, and retrieve historically similar grievances using classical NLP.
 """
 
 import streamlit as st
+from src.preprocessing import clean_text, preprocess_text, tokenize, remove_stopwords
 
 st.set_page_config(
     page_title="Customer Complaint Similarity & Categorisation",
@@ -25,7 +26,7 @@ st.markdown(
 st.sidebar.header("Navigation")
 section = st.sidebar.radio(
     "Select Mode",
-    ["Overview & Pipeline", "Classify Complaint", "Find Similar Complaints"]
+    ["Overview & Pipeline", "Preprocessing Demo", "Classify Complaint", "Find Similar Complaints"]
 )
 
 if section == "Overview & Pipeline":
@@ -55,9 +56,42 @@ if section == "Overview & Pipeline":
         """
     )
     st.info(
-        "Current Milestone: Dataset loading and validation complete. "
-        "TF-IDF vectorisation, similarity search, and classification modelling are not yet enabled."
+        "Current Milestone: Text preprocessing pipeline complete. "
+        "TF-IDF vectorisation, similarity search, and classification modelling are scheduled in upcoming milestones."
     )
+
+elif section == "Preprocessing Demo":
+    st.subheader("Classical Text Preprocessing Pipeline Demo")
+    st.markdown(
+        "Demonstrates the preprocessing steps on sample complaint text: "
+        "lowercasing, URL/email removal, punctuation stripping, CFPB redaction removal (e.g. `XXXX`), "
+        "number preservation, and stopword filtering."
+    )
+    default_text = (
+        "I noticed an UNKNOWN fee of $50.00 on XX/XX/2023 from https://fraud.com! "
+        "Called customer care agent XXXX regarding account # 12345 -- why was this fee applied?"
+    )
+    input_text = st.text_area("Input Complaint Narrative:", value=default_text, height=120)
+    if st.button("Run Preprocessing"):
+        if not input_text.strip():
+            st.warning("Please enter text to preprocess.")
+        else:
+            cleaned = clean_text(input_text)
+            final_text = preprocess_text(input_text)
+            raw_words = len(input_text.split())
+            clean_words = len(final_text.split())
+
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Raw Word Count", raw_words)
+            with col2:
+                st.metric("Cleaned Word Count", clean_words)
+
+            st.markdown("**Cleaned & Normalized Text (after noise & redaction removal):**")
+            st.code(cleaned, language="text")
+
+            st.markdown("**Final Preprocessed Text (ready for TF-IDF):**")
+            st.success(final_text)
 
 elif section == "Classify Complaint":
     st.subheader("Predict Complaint Product Category")

@@ -1,13 +1,14 @@
 """Text preprocessing module for consumer complaint narratives.
 
-Provides functions for text normalization, cleaning, tokenization,
-and stopword removal using classical NLP techniques.
+Provides classical NLP text normalization, cleaning, tokenization,
+and stopword removal routines for financial complaint data.
 """
 
 from __future__ import annotations
 
 import re
-from typing import Iterable, Set
+from typing import Iterable, List, Set
+import pandas as pd
 
 # Standard English stop words collection (built-in baseline)
 STANDARD_STOPWORDS: Set[str] = {
@@ -35,44 +36,57 @@ STANDARD_STOPWORDS: Set[str] = {
 
 
 def clean_text(text: str | None) -> str:
-    """Clean raw complaint narrative text by removing URLs, special characters, and extra spaces.
+    """Clean raw complaint narrative text using classical normalization steps.
+
+    Design Decisions:
+    - Lowercase normalization: Harmonizes casing variations.
+    - URL & Email removal: Discards web and contact noise that does not inform
+      financial categorization.
+    - Punctuation & symbol stripping: Replaces non-alphanumeric symbols with spaces.
+    - Numeric token retention: Numeric values (e.g., years like '2023', dollar sums
+      like '50', percentages, and account digits) are intentionally preserved
+      because they offer discriminative financial context (e.g., loan terms or dispute dates).
+    - CFPB Redaction removal: Strips privacy placeholders (e.g., 'xxxx', 'xx/xx/xxxx')
+      using word-boundary matching (\\bx{2,}\\b) to eliminate masking artifacts without
+      corrupting genuine words that contain consecutive 'x' characters (e.g., 'Exxon').
+    - Whitespace normalization: Collapses multi-spaces and strips boundaries.
 
     Parameters
     ----------
     text : str | None
-        The input narrative text.
+        Raw customer complaint narrative string.
 
     Returns
     -------
     str
-        Lowercased, sanitized string containing only alphanumeric tokens and single spaces.
+        Sanitized, lowercased string of alphanumeric words and numbers separated by single spaces.
     """
     if not isinstance(text, str) or not text.strip():
         return ""
 
-    # Convert to lowercase
+    # 1. Lowercase normalization
     cleaned = text.lower()
 
-    # Remove URLs
+    # 2. Remove web URLs
     cleaned = re.sub(r"https?://\S+|www\.\S+", " ", cleaned)
 
-    # Remove email addresses
+    # 3. Remove email addresses
     cleaned = re.sub(r"\S+@\S+", " ", cleaned)
 
-    # Remove CFPB redaction placeholders (e.g., 'xxxx', 'xx/xx/xxxx')
-    cleaned = re.sub(r"x{2,}", " ", cleaned)
-
-    # Remove punctuation, symbols, and non-alphanumeric characters (keep words and numbers)
+    # 4. Remove punctuation and non-alphanumeric symbols (preserve words and digits)
     cleaned = re.sub(r"[^a-zA-Z0-9\s]", " ", cleaned)
 
-    # Collapse repeated whitespace to a single space and strip boundaries
+    # 5. Remove standalone CFPB privacy redaction masks (e.g. 'xx', 'xxxx')
+    cleaned = re.sub(r"\bx{2,}\b", " ", cleaned)
+
+    # 6. Collapse repeated whitespace and strip ends
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
 
     return cleaned
 
 
-def tokenize(text: str | None) -> list[str]:
-    """Split cleaned text into a sequence of alphanumeric word tokens.
+def tokenize(text: str | None) -> List[str]:
+    """Split cleaned text into a sequence of alphanumeric word and numeric tokens.
 
     Parameters
     ----------
@@ -81,8 +95,8 @@ def tokenize(text: str | None) -> list[str]:
 
     Returns
     -------
-    list[str]
-        List of individual word tokens.
+    List[str]
+        List of individual token strings.
     """
     if not isinstance(text, str) or not text.strip():
         return []
@@ -97,19 +111,19 @@ def tokenize(text: str | None) -> list[str]:
 def remove_stopwords(
     tokens: Iterable[str],
     custom_stopwords: Set[str] | None = None
-) -> list[str]:
-    """Filter out common English stop words from a token sequence.
+) -> List[str]:
+    """Filter out common stop words from a token sequence.
 
     Parameters
     ----------
     tokens : Iterable[str]
         Input iterable of word tokens.
     custom_stopwords : Set[str] | None, optional
-        Custom stop words set to override or extend the default list.
+        Custom stop words set to override or extend default stop words.
 
     Returns
     -------
-    list[str]
+    List[str]
         Filtered list of tokens with stop words excluded.
     """
     stopwords = custom_stopwords if custom_stopwords is not None else STANDARD_STOPWORDS
@@ -122,11 +136,8 @@ def preprocess_text(
 ) -> str:
     """Execute complete end-to-end preprocessing pipeline on a single narrative string.
 
-    Pipeline steps:
-    1. Lowercase normalization & noise removal (clean_text)
-    2. Tokenization (tokenize)
-    3. Stopword elimination (remove_stopwords)
-    4. Rejoining into a standardized space-delimited string
+    Pipeline:
+    Raw complaint → clean_text → tokenize → remove_stopwords → standardized string.
 
     Parameters
     ----------
@@ -143,3 +154,36 @@ def preprocess_text(
     tokens = tokenize(text)
     filtered = remove_stopwords(tokens, custom_stopwords=custom_stopwords)
     return " ".join(filtered)
+
+
+def preprocess_series(
+    series: pd.Series,
+    custom_stopwords: Set[str] | None = None
+) -> pd.Series:
+    """Apply the text preprocessing pipeline across a pandas Series of complaint texts.
+
+    Preserves the original Series index and does not mutate the source data.
+
+    Parameters
+    ----------
+    series : pd.Series
+        Pandas Series containing raw complaint text records.
+    custom_stopwords : Set[str] | None, optional
+        Custom stop words to filter out during preprocessing.
+
+    Returns
+    -------
+    pd.Series
+        New Series containing cleaned and preprocessed narrative strings.
+
+    Raises
+    ------
+    TypeError
+        If input is not a pandas Series.
+    """
+    if not isinstance(series, pd.Series):
+        raise TypeError(f"Expected pandas Series, got {type(series).__name__}")
+
+    return series.fillna("").astype(str).apply(
+        lambda val: preprocess_text(val, custom_stopwords=custom_stopwords)
+    )
