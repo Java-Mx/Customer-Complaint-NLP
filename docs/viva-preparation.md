@@ -72,14 +72,27 @@ We report both without declaring one "better."
 We isolate two distinct factors:
 $$\text{Total Error Reduction} = \Delta_{\text{task collapse}} + \Delta_{\text{retraining}}$$
 
-1. **Mechanical Task Collapse ($\Delta_{\text{task collapse}}$):** Errors that disappear purely because two labels are mapped to the same target class (evaluated by post-hoc remapping of the 18-category model's predictions). This accounts for **608 errors (39.9%)** in the conservative variant and **635 errors (41.7%)** in the broad variant.
-2. **Retraining Effect ($\Delta_{\text{retraining}}$):** The net change in errors when the classifier is retrained with a consolidated objective function, allowing it to optimize decision boundaries without penalizing intra-variant ambiguity.
+1. **Mechanical Task Collapse ($\Delta_{\text{task collapse}}$):** Errors that disappear purely because two labels are mapped to the same target class (evaluated by post-hoc remapping of the 18-category model's predictions). This accounts for **608 errors (39.95%)** in the conservative variant and **635 errors (41.72%)** in the broad variant.
+2. **Retraining Effect ($\Delta_{\text{retraining}}$):** The net change in errors when the classifier is retrained with a consolidated objective function, allowing it to optimize decision boundaries on the normalized label space. For v1 Conservative, retraining resulted in 925 errors (a small net adjustment of +11 errors relative to post-hoc mapping 914). For v2 Broad, retraining resulted in 884 errors (a net reduction of 3 errors relative to post-hoc mapping 887).
+
+---
+
+### Q8: Why did accuracy increase from 69.56% to 81.50% (v1) and 82.32% (v2)?
+**A:**
+The accuracy increase is **not** a reflection of superior classifier generalization or improved NLP feature representation. It occurred primarily because the **target taxonomy was redefined**.
+
+Specifically:
+- In the original 18-category task, predicting *Credit card* when the label was *Credit card or prepaid card* counted as an empirical classification error, even though both represent the exact same financial product separated only by CFPB administrative form versions (April 2017).
+- In the normalized taxonomy, these temporal synonymy boundaries are collapsed.
+- Of the 597 fewer errors in v1 Conservative (down from 1,522 to 925), **608 errors (100%+)** were eliminated purely mechanically through label collapse. Retraining on the normalized labels contributed only a slight adjustment (+11 errors, or a 0.22% fluctuation on 5,000 samples).
+- For v2 Broad, mechanical collapse eliminated **635 errors**, and retraining eliminated **3 additional errors**.
+- Therefore, the metric increase is driven by aligning the classification task with genuine product boundaries rather than administrative era artifacts.
 
 ---
 
 ## 3. Information Loss & Practical Trade-offs
 
-### Q8: What specific information is lost in the normalized taxonomies?
+### Q9: What specific information is lost in the normalized taxonomies?
 **A:**  
 We explicitly document four major losses:
 1. **Credit Reporting:** Collapses the pre-2019 narrow credit bureau dispute scope with the broader post-2019 scope that includes tenant screening and credit repair companies.
@@ -89,8 +102,9 @@ We explicitly document four major losses:
 
 ---
 
-### Q9: If you were deploying this in a financial institution, which model would you deploy?
+### Q10: If you were deploying this in a financial institution, which model would you deploy?
 **A:**  
-It depends on the downstream operational objective:
-- If the goal is **automated triage to specialized operational teams** (e.g., Credit Bureau Disputes vs. Mortgage Servicing), the **11-category normalized model** is preferable because complaints within the merged clusters go to the same operational department anyway, and the model achieves ~82% accuracy with much higher confidence.
-- If the goal is **regulatory reporting to the CFPB** where complaints must match historical federal filings exactly, the **original 18-category model** must be retained, but paired with a confidence threshold routing ambiguous predictions (probabilities $< 0.40$) to human reviewers.
+There is no universally "superior" model; the choice is strictly **criteria-based** and depends on downstream operational requirements:
+- **Operational Routing & Triage**: May favor a normalized taxonomy (e.g., 11-category Conservative) if internal intake departments are organized around core product lines (e.g., all credit bureau issues handled by one team, checking/savings by another). In such workflows, forcing the model to predict whether a consumer's credit report dispute used 2015 vs. 2020 CFPB wording is unhelpful noise.
+- **Regulatory Reporting & Audit Compliance**: Strongly favors the **original 18-category reference model**. When submissions to regulatory bodies must match historical CFPB portal fields exactly, preserving full taxonomy granularity is mandatory. In this context, the model should be paired with confidence thresholds (e.g., routing predictions with probability $< 0.40$ to human compliance officers).
+- **Executive Summary**: The appropriate formulation depends on the required label granularity, regulatory constraints, and downstream operational use. Neither variant is unconditionally better.

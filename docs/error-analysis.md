@@ -69,12 +69,12 @@ This section presents the only methodologically valid apples-to-apples compariso
 | Metric | Baseline (Word TF-IDF, no balancing) | Improved (Combined TF-IDF, balanced) | Absolute Diff | Relative Change |
 |---|---:|---:|---:|---:|
 | Accuracy | 69.14% | 69.56% | +0.42 pp | +0.61% |
-| Weighted Precision | 68.55% | 70.03% | +1.48 pp | +2.16% |
+| Weighted Precision | 66.53% | 70.03% | +3.50 pp | +5.26% |
 | Weighted Recall | 69.14% | 69.56% | +0.42 pp | +0.61% |
 | Weighted F1 | 65.73% | 69.55% | +3.82 pp | +5.81% |
-| Macro Precision | 31.87% | 49.67% | +17.80 pp | +55.9% |
-| Macro Recall | 37.46% | 51.97% | +14.51 pp | +38.7% |
-| **Macro F1** | **34.15%** | **50.56%** | **+16.41 pp** | **+48.1%** |
+| Macro Precision | 41.37% | 49.67% | +8.30 pp | +20.06% |
+| Macro Recall | 34.08% | 51.97% | +17.89 pp | +52.49% |
+| **Macro F1** | **34.15%** | **50.56%** | **+16.41 pp** | **+48.05%** |
 
 **Key observation:** The primary improvement from the combined TF-IDF + class balancing strategy is on **Macro F1** (+16.41 pp, +48.1% relative), driven by substantially higher precision and recall across minority classes. Majority-class accuracy is similar between the two models.
 
