@@ -55,8 +55,8 @@ if section == "Overview & Pipeline":
         """
     )
     st.info(
-        "Project initialization stage complete. Model training and evaluation pipelines "
-        "will be incrementally enabled in upcoming milestones."
+        "Current Milestone: Dataset loading and validation complete. "
+        "TF-IDF vectorisation, similarity search, and classification modelling are not yet enabled."
     )
 
 elif section == "Classify Complaint":
