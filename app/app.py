@@ -1,11 +1,14 @@
 """Streamlit Web Application for Customer Complaint Similarity & Categorisation.
 
-Provides an interactive user interface to explore complaints, demonstrate preprocessing,
-predict product categories, and retrieve historically similar grievances using classical NLP.
+Provides an interactive user interface to explore complaints, demonstrate preprocessing
+and TF-IDF vectorisation, predict product categories, and retrieve similar grievances.
 """
 
+import pandas as pd
 import streamlit as st
-from src.preprocessing import clean_text, preprocess_text, tokenize, remove_stopwords
+
+from src.preprocessing import clean_text, preprocess_text, preprocess_series
+from src.vectorization import create_vectorizer, fit_transform_tfidf
 
 st.set_page_config(
     page_title="Customer Complaint Similarity & Categorisation",
@@ -26,7 +29,7 @@ st.markdown(
 st.sidebar.header("Navigation")
 section = st.sidebar.radio(
     "Select Mode",
-    ["Overview & Pipeline", "Preprocessing Demo", "Classify Complaint", "Find Similar Complaints"]
+    ["Overview & Pipeline", "Preprocessing Demo", "TF-IDF Demo", "Classify Complaint", "Find Similar Complaints"]
 )
 
 if section == "Overview & Pipeline":
@@ -40,7 +43,7 @@ if section == "Overview & Pipeline":
          (Lowercasing, Cleaning, Tokenization, Stopword Filtering)
                     ↓
             TF-IDF Vectorisation
-         (Term Frequency - Inverse Document Frequency)
+         (Unigrams + Bigrams, Sublinear Scaling, Sparse CSR Matrix)
                     ↓
           ┌─────────────────────────────────┐
           │                                 │
@@ -56,8 +59,8 @@ if section == "Overview & Pipeline":
         """
     )
     st.info(
-        "Current Milestone: Text preprocessing pipeline complete. "
-        "TF-IDF vectorisation, similarity search, and classification modelling are scheduled in upcoming milestones."
+        "Current Milestone: Text preprocessing and TF-IDF vectorisation complete. "
+        "Cosine similarity search and classification modelling are scheduled in upcoming milestones."
     )
 
 elif section == "Preprocessing Demo":
@@ -93,6 +96,48 @@ elif section == "Preprocessing Demo":
             st.markdown("**Final Preprocessed Text (ready for TF-IDF):**")
             st.success(final_text)
 
+elif section == "TF-IDF Demo":
+    st.subheader("TF-IDF Vectorisation Demo")
+    st.markdown(
+        """
+        Transforms preprocessed text into term frequency-inverse document frequency feature vectors.
+        - **Vocabulary**: Unigrams + Bigrams (`ngram_range=(1, 2)`)
+        - **Scaling**: Sublinear Term Frequency ($1 + \\log(\\text{tf})$)
+        - **Representation**: Scipy sparse CSR matrix
+        """
+    )
+
+    sample_complaints = [
+        "unauthorized charge credit card account dispute late fee",
+        "late payment fee credit card statement billing dispute",
+        "mortgage loan modification request denied lender servicer",
+        "identity theft reported fraudulent loan account opened",
+        "credit card payment processed late fee charged again",
+    ]
+
+    st.markdown("**Sample Corpus (5 Preprocessed Complaint Documents):**")
+    for idx, text in enumerate(sample_complaints, start=1):
+        st.markdown(f"- **Doc {idx}:** `{text}`")
+
+    if st.button("Generate TF-IDF Features"):
+        vec = create_vectorizer(ngram_range=(1, 2), min_df=1, sublinear_tf=True, lowercase=False)
+        fitted_vec, matrix = fit_transform_tfidf(vec, sample_complaints)
+        feature_names = fitted_vec.get_feature_names_out()
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Sample Documents", matrix.shape[0])
+        with col2:
+            st.metric("Total Extracted Features", matrix.shape[1])
+        with col3:
+            st.metric("Matrix Storage Format", f"Sparse ({type(matrix).__name__})")
+
+        unigrams = [f for f in feature_names if " " not in f]
+        bigrams = [f for f in feature_names if " " in f]
+
+        st.markdown(f"**Unigrams ({len(unigrams)}):** `{', '.join(unigrams[:10])}...`")
+        st.markdown(f"**Bigrams ({len(bigrams)}):** `{', '.join(bigrams[:10])}...`")
+
 elif section == "Classify Complaint":
     st.subheader("Predict Complaint Product Category")
     user_complaint = st.text_area(
@@ -105,7 +150,7 @@ elif section == "Classify Complaint":
             st.warning("Please provide a complaint narrative before proceeding.")
         else:
             st.info(
-                "Classification model training is scheduled in the upcoming development milestone. "
+                "Classification model training is scheduled in an upcoming development milestone. "
                 "The trained Logistic Regression classifier will categorize complaints here."
             )
 

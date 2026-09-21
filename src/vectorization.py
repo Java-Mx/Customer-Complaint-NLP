@@ -1,62 +1,240 @@
-"""TF-IDF vectorization module for complaint narratives.
+"""TF-IDF vectorization module for consumer complaint narratives.
 
-Transforms preprocessed complaint text into term frequency-inverse document
-frequency feature matrices using classical Scikit-learn vectorizers.
+Transforms preprocessed text into term frequency-inverse document frequency
+feature matrices using classical Scikit-learn sparse vector representations.
+
+Architectural Design:
+- ngram_range=(1, 2): Captures both unigrams and bigrams. Unigrams encode
+  individual domain terms (e.g., 'dispute', 'mortgage', 'fraud'), while bigrams
+  capture compound financial phrases (e.g., 'credit card', 'late payment',
+  'loan modification', 'identity theft') that carry crucial semantic signals
+  for complaint categorization and similarity matching.
+- lowercase=False: Lowercase normalization is already performed upstream in
+  src.preprocessing. Disabling redundant lowercasing here preserves efficiency.
+- sublinear_tf=True: Replaces term frequency (TF) with 1 + log(TF), dampening the
+  influence of repetitive word occurrences within lengthy complaint descriptions.
+- Sparse Matrices: Feature matrices are strictly retained as scipy.sparse.csr_matrix
+  structures to ensure minimal memory footprint on corpora containing 25,000+ documents.
 """
 
 from __future__ import annotations
 
-from typing import Any, Tuple
+from typing import Any, Iterable, List, Optional, Sequence, Tuple, Union
+import numpy as np
 import pandas as pd
+from scipy.sparse import issparse, spmatrix
+from sklearn.exceptions import NotFittedError
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.utils.validation import check_is_fitted
 
 
-def build_tfidf_vectorizer(
-    max_features: int = 5000,
+def create_vectorizer(
     ngram_range: Tuple[int, int] = (1, 2),
-    min_df: int = 2,
-    max_df: float = 0.85
-) -> Any:
-    """Initialize and configure a TfidfVectorizer instance.
+    min_df: Union[int, float] = 2,
+    max_df: Union[int, float] = 0.95,
+    sublinear_tf: bool = True,
+    lowercase: bool = False,
+    max_features: Optional[int] = None,
+    **kwargs: Any
+) -> TfidfVectorizer:
+    """Initialize and configure a classical TfidfVectorizer instance.
 
     Parameters
     ----------
-    max_features : int, default=5000
-        Maximum vocabulary size to retain based on term frequency across corpus.
     ngram_range : Tuple[int, int], default=(1, 2)
-        Lower and upper boundary of range of n-values for different n-grams.
-    min_df : int, default=2
-        Minimum number of documents a word must appear in.
-    max_df : float, default=0.85
-        Ignore terms that appear in more than this proportion of documents.
+        Range of n-values for extracted n-grams. Defaults to unigrams + bigrams.
+    min_df : int | float, default=2
+        Minimum document frequency threshold. Terms appearing in fewer documents
+        are pruned as corpus noise.
+    max_df : int | float, default=0.95
+        Maximum document frequency threshold. Terms appearing in more than 95%
+        of documents are pruned as corpus-specific stop words.
+    sublinear_tf : bool, default=True
+        Applies sublinear scaling (1 + log(tf)) to damp the effect of repeated terms.
+    lowercase : bool, default=False
+        Set to False because text normalization is handled in src.preprocessing.
+    max_features : int | None, optional
+        Maximum vocabulary size to retain ordered by term frequency.
+    **kwargs : Any
+        Additional keyword arguments forwarded to Scikit-learn's TfidfVectorizer.
 
     Returns
     -------
     TfidfVectorizer
         Configured un-fitted vectorizer instance.
     """
-    raise NotImplementedError(
-        "TF-IDF vectorizer configuration will be implemented in the vectorization milestone."
+    return TfidfVectorizer(
+        ngram_range=ngram_range,
+        min_df=min_df,
+        max_df=max_df,
+        sublinear_tf=sublinear_tf,
+        lowercase=lowercase,
+        max_features=max_features,
+        **kwargs
     )
 
 
-def fit_transform_corpus(
-    corpus: pd.Series | list[str],
-    vectorizer: Any | None = None
-) -> Tuple[Any, Any]:
-    """Fit a vectorizer on the input text corpus and transform it into a TF-IDF matrix.
+# Alias preserving earlier scaffold function name
+build_tfidf_vectorizer = create_vectorizer
+
+
+def _validate_input_documents(texts: Any) -> Sequence[str]:
+    """Validate and convert input document collections to a suitable sequence of strings.
 
     Parameters
     ----------
-    corpus : pd.Series | list[str]
-        Iterable of preprocessed narrative strings.
-    vectorizer : Any | None, optional
-        Pre-configured vectorizer instance. If None, a default one will be created.
+    texts : Any
+        Input texts (list, tuple, pd.Series, or single string).
 
     Returns
     -------
-    Tuple[Any, Any]
-        (fitted_vectorizer, tfidf_matrix)
+    Sequence[str]
+        Sequence of text strings.
+
+    Raises
+    ------
+    TypeError
+        If texts is None or not an iterable.
+    ValueError
+        If texts collection is empty.
     """
-    raise NotImplementedError(
-        "Corpus vectorization fitting will be implemented in the vectorization milestone."
-    )
+    if texts is None:
+        raise TypeError("Input document collection cannot be None.")
+
+    if isinstance(texts, str):
+        texts = [texts]
+    elif isinstance(texts, (pd.Series, np.ndarray)):
+        texts = texts.tolist()
+    elif not isinstance(texts, Iterable):
+        raise TypeError(f"Expected iterable of strings, got {type(texts).__name__}.")
+    else:
+        texts = list(texts)
+
+    if len(texts) == 0:
+        raise ValueError("Document collection is empty. Cannot fit or transform TF-IDF vectorizer.")
+
+    # Ensure all elements are strings or convert
+    return [str(t) if t is not None else "" for t in texts]
+
+
+def fit_tfidf(
+    vectorizer: TfidfVectorizer,
+    texts: Iterable[str]
+) -> TfidfVectorizer:
+    """Fit a TF-IDF vectorizer on a collection of preprocessed training documents.
+
+    Parameters
+    ----------
+    vectorizer : TfidfVectorizer
+        Configured TfidfVectorizer instance.
+    texts : Iterable[str]
+        Collection of preprocessed complaint text strings.
+
+    Returns
+    -------
+    TfidfVectorizer
+        Fitted vectorizer with established vocabulary.
+
+    Raises
+    ------
+    TypeError
+        If vectorizer or texts are of invalid type.
+    ValueError
+        If texts collection is empty.
+    """
+    if not isinstance(vectorizer, TfidfVectorizer):
+        raise TypeError(f"Expected TfidfVectorizer, got {type(vectorizer).__name__}.")
+
+    validated_texts = _validate_input_documents(texts)
+    vectorizer.fit(validated_texts)
+    return vectorizer
+
+
+def transform_tfidf(
+    vectorizer: TfidfVectorizer,
+    texts: Iterable[str]
+) -> spmatrix:
+    """Transform preprocessed documents into a sparse TF-IDF feature matrix.
+
+    Parameters
+    ----------
+    vectorizer : TfidfVectorizer
+        Fitted TfidfVectorizer instance.
+    texts : Iterable[str]
+        Collection of preprocessed text strings to transform.
+
+    Returns
+    -------
+    scipy.sparse.spmatrix
+        Sparse feature matrix in CSR format (num_documents x vocabulary_size).
+
+    Raises
+    ------
+    NotFittedError
+        If the vectorizer has not been fitted prior to transform.
+    TypeError
+        If vectorizer or texts are of invalid type.
+    ValueError
+        If texts collection is empty.
+    """
+    if not isinstance(vectorizer, TfidfVectorizer):
+        raise TypeError(f"Expected TfidfVectorizer, got {type(vectorizer).__name__}.")
+
+    # Validate that vectorizer is already fitted
+    try:
+        check_is_fitted(vectorizer)
+    except NotFittedError:
+        raise NotFittedError(
+            "The TfidfVectorizer is not fitted. Call fit_tfidf() or fit_transform_tfidf() before transforming."
+        )
+
+    validated_texts = _validate_input_documents(texts)
+    return vectorizer.transform(validated_texts)
+
+
+def fit_transform_tfidf(
+    vectorizer: TfidfVectorizer,
+    texts: Iterable[str]
+) -> Tuple[TfidfVectorizer, spmatrix]:
+    """Fit a TF-IDF vectorizer and transform documents into a sparse matrix in a single step.
+
+    Parameters
+    ----------
+    vectorizer : TfidfVectorizer
+        Configured TfidfVectorizer instance.
+    texts : Iterable[str]
+        Collection of preprocessed complaint texts.
+
+    Returns
+    -------
+    Tuple[TfidfVectorizer, scipy.sparse.spmatrix]
+        (fitted_vectorizer, sparse_tfidf_matrix)
+    """
+    if not isinstance(vectorizer, TfidfVectorizer):
+        raise TypeError(f"Expected TfidfVectorizer, got {type(vectorizer).__name__}.")
+
+    validated_texts = _validate_input_documents(texts)
+    matrix = vectorizer.fit_transform(validated_texts)
+    return vectorizer, matrix
+
+
+def fit_transform_corpus(
+    corpus: Iterable[str],
+    vectorizer: Optional[TfidfVectorizer] = None
+) -> Tuple[TfidfVectorizer, spmatrix]:
+    """Convenience helper to fit and transform a corpus with a default or provided vectorizer.
+
+    Parameters
+    ----------
+    corpus : Iterable[str]
+        Collection of preprocessed narrative strings.
+    vectorizer : Optional[TfidfVectorizer], optional
+        Pre-configured vectorizer. If None, create_vectorizer() is called.
+
+    Returns
+    -------
+    Tuple[TfidfVectorizer, scipy.sparse.spmatrix]
+        (fitted_vectorizer, sparse_tfidf_matrix)
+    """
+    vec = vectorizer if vectorizer is not None else create_vectorizer()
+    return fit_transform_tfidf(vec, corpus)
