@@ -1,0 +1,141 @@
+{
+  "taxonomy_id": "v1_conservative",
+  "version": "1.0",
+  "date_created": "2026-09-21",
+  "n_original_categories": 18,
+  "n_normalized_categories": 11,
+  "description": "Conservative taxonomy normalization. Consumer Loan is kept as a separate normalized category. Only categories with direct CFPB-documented rename or merger evidence are consolidated. The taxonomy is defined before model evaluation and is not chosen based on experimental F1.",
+  "cfpb_source_primary": "CFPB 'Summary of product and sub-product changes' (effective April 24, 2017)",
+  "cfpb_source_secondary": "CFPB 'Past product and issue changes' page, consumerfinance.gov",
+  "cfpb_data_policy": "The database displays consumer selections consistent with the form options available at the time the complaint was originally submitted.",
+  "mapping": {
+    "Credit reporting": {
+      "normalized_category": "Credit Reporting & Repair",
+      "evidence_type": "A",
+      "evidence_description": "CFPB documented rename (~2019). 'Credit reporting' (Era 1/2 label) was expanded and renamed to the long-form label to reflect broader scope including credit repair services and other personal consumer reporting products. Both labels represent the same CFPB product class at different time periods.",
+      "cfpb_source": "CFPB 'Past product and issue changes' page (~2019 rename)"
+    },
+    "Credit reporting, credit repair services, or other personal consumer reports": {
+      "normalized_category": "Credit Reporting & Repair",
+      "evidence_type": "A",
+      "evidence_description": "Post-~2019 canonical label for the same product class as 'Credit reporting'. See above.",
+      "cfpb_source": "CFPB 'Past product and issue changes' page (~2019 rename)"
+    },
+    "Credit card": {
+      "normalized_category": "Credit Card & Prepaid",
+      "evidence_type": "A",
+      "evidence_description": "CFPB April 24, 2017 merger: 'Credit card' and 'Prepaid card' were combined into 'Credit card or prepaid card' because 'consumers often associate these products with one another' (verbatim from CFPB 'Summary of product and sub-product changes'). The legacy 'Credit card' label represents the pre-merger period of the same product class.",
+      "cfpb_source": "CFPB 'Summary of product and sub-product changes', April 24, 2017"
+    },
+    "Credit card or prepaid card": {
+      "normalized_category": "Credit Card & Prepaid",
+      "evidence_type": "A",
+      "evidence_description": "Post-April 2017 canonical label for the merged credit card + prepaid card product class.",
+      "cfpb_source": "CFPB 'Summary of product and sub-product changes', April 24, 2017"
+    },
+    "Prepaid card": {
+      "normalized_category": "Credit Card & Prepaid",
+      "evidence_type": "A",
+      "evidence_description": "Legacy standalone 'Prepaid card' product was merged into 'Credit card or prepaid card' in April 2017. As a pre-2017 label it represents a product class later absorbed into the combined category.",
+      "cfpb_source": "CFPB 'Summary of product and sub-product changes', April 24, 2017"
+    },
+    "Bank account or service": {
+      "normalized_category": "Banking Accounts",
+      "evidence_type": "A",
+      "evidence_description": "CFPB April 24, 2017 direct rename. 'Bank account or service' was renamed to 'Checking or savings account' based on consumer feedback. This is explicitly documented as a label simplification of the same product class.",
+      "cfpb_source": "CFPB 'Summary of product and sub-product changes', April 24, 2017"
+    },
+    "Checking or savings account": {
+      "normalized_category": "Banking Accounts",
+      "evidence_type": "A",
+      "evidence_description": "Post-April 2017 canonical label. See above.",
+      "cfpb_source": "CFPB 'Summary of product and sub-product changes', April 24, 2017"
+    },
+    "Money transfers": {
+      "normalized_category": "Money Transfer & Services",
+      "evidence_type": "A",
+      "evidence_description": "Legacy label for the product class renamed/expanded in April 2017 to 'Money transfer, virtual currency, or money service'. The change also absorbed elements of 'Other financial service' and formally incorporated virtual currency, which the CFPB had been accepting since August 2014.",
+      "cfpb_source": "CFPB 'Summary of product and sub-product changes', April 24, 2017"
+    },
+    "Money transfer, virtual currency, or money service": {
+      "normalized_category": "Money Transfer & Services",
+      "evidence_type": "A",
+      "evidence_description": "Post-April 2017 canonical label for the money transfer + virtual currency + money service product class.",
+      "cfpb_source": "CFPB 'Summary of product and sub-product changes', April 24, 2017"
+    },
+    "Virtual currency": {
+      "normalized_category": "Money Transfer & Services",
+      "evidence_type": "A",
+      "evidence_description": "Legacy sub-product formally incorporated into the 'Money transfer, virtual currency, or money service' category in April 2017. Only 3 records in the full 25,000-record dataset.",
+      "cfpb_source": "CFPB 'Summary of product and sub-product changes', April 24, 2017"
+    },
+    "Payday loan": {
+      "normalized_category": "Consumer & Small Dollar Loans",
+      "evidence_type": "A",
+      "evidence_description": "Pre-2017 standalone 'Payday loan' product was merged into 'Payday loan, title loan, or personal loan' in April 2017, which also absorbed personal installment loan and title loan sub-products from 'Consumer loan'. Both labels represent the same payday/short-term loan product class.",
+      "cfpb_source": "CFPB 'Summary of product and sub-product changes', April 24, 2017"
+    },
+    "Payday loan, title loan, or personal loan": {
+      "normalized_category": "Consumer & Small Dollar Loans",
+      "evidence_type": "A",
+      "evidence_description": "Post-April 2017 canonical label encompassing payday, title, and personal installment loans.",
+      "cfpb_source": "CFPB 'Summary of product and sub-product changes', April 24, 2017"
+    },
+    "Consumer Loan": {
+      "normalized_category": "Consumer Loan",
+      "evidence_type": "UNCHANGED",
+      "evidence_description": "Kept as a separate normalized category in the conservative taxonomy. The CFPB 2017 change split out Vehicle loans and Payday-type loans as sub-products from Consumer loan, leaving residual complaints about mid-size personal/installment loans (typically $1,000-$25,000). These involve distinct issues (interest calculation errors, early payoff penalties, loan origination fees) that are semantically different from small-dollar payday complaints. Merging would conflate different regulatory contexts (TILA compliance vs. predatory lending).",
+      "cfpb_source": "Design decision — not a CFPB-documented merge"
+    },
+    "Vehicle loan or lease": {
+      "normalized_category": "Vehicle Finance",
+      "evidence_type": "UNCHANGED",
+      "evidence_description": "Standalone category. Not involved in the 2017 taxonomy merger (Vehicle loan was already separated or made standalone in 2017). Has a distinct product domain (auto financing, leasing, repossession).",
+      "cfpb_source": "Standalone — no change applied"
+    },
+    "Mortgage": {
+      "normalized_category": "Mortgage",
+      "evidence_type": "UNCHANGED",
+      "evidence_description": "No CFPB taxonomy change applies. Clearly distinct product class.",
+      "cfpb_source": "Standalone — no change applied"
+    },
+    "Student loan": {
+      "normalized_category": "Student Loan",
+      "evidence_type": "UNCHANGED",
+      "evidence_description": "No CFPB taxonomy change applies. Distinct product class (federal and private education loans).",
+      "cfpb_source": "Standalone — no change applied"
+    },
+    "Debt collection": {
+      "normalized_category": "Debt Collection",
+      "evidence_type": "UNCHANGED",
+      "evidence_description": "No CFPB taxonomy change applies. Clearly distinct product class.",
+      "cfpb_source": "Standalone — no change applied"
+    },
+    "Other financial service": {
+      "normalized_category": "Other Financial Service",
+      "evidence_type": "UNCHANGED",
+      "evidence_description": "Kept as-is despite the CFPB 2017 partial absorption of this category into 'Money transfer, virtual currency, or money service'. With only 23 records (0.09% of dataset), there is insufficient support to establish a confident mapping. The CFPB's partial absorption is noted but not enforced.",
+      "cfpb_source": "Standalone — insufficient support for mapping"
+    }
+  },
+  "normalized_categories_list": [
+    "Credit Reporting & Repair",
+    "Credit Card & Prepaid",
+    "Banking Accounts",
+    "Money Transfer & Services",
+    "Consumer & Small Dollar Loans",
+    "Consumer Loan",
+    "Vehicle Finance",
+    "Mortgage",
+    "Student Loan",
+    "Debt Collection",
+    "Other Financial Service"
+  ],
+  "information_loss": {
+    "Credit Reporting & Repair": "Collapses pre-2019 ('Credit reporting') and post-2019 label variants. The newer label's expanded scope — credit repair companies, employment screening, tenant screening — is merged with the narrower historical credit bureau dispute label.",
+    "Credit Card & Prepaid": "Collapses revolving credit products (credit cards, TILA-governed) and stored-value payment instruments (prepaid cards, EFTA-governed). Prepaid cards serve different consumers, including unbanked individuals, and have distinct fee structures.",
+    "Banking Accounts": "Collapses pre-2017 'Bank account or service' (which included check-cashing, safe deposit boxes, money orders as sub-products) and the narrower post-2017 'Checking or savings account'. Smaller scope complaint types present in earlier data are collapsed.",
+    "Money Transfer & Services": "Collapses traditional wire/ACH transfers, virtual currency exchanges, and licensed money transmitters/money service businesses. These have different regulatory frameworks (FinCEN, state money transmitter laws, FinCEN virtual currency guidance).",
+    "Consumer & Small Dollar Loans": "Collapses pre-2017 standalone 'Payday loan' and post-2017 combined 'Payday loan, title loan, or personal loan' (which additionally covers title loans and personal installment loans). The distinction between 2-week rollover payday loans and 12-month personal installment loans is collapsed."
+  }
+}

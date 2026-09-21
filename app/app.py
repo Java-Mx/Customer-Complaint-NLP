@@ -160,6 +160,43 @@ def load_error_analysis_data():
     return ea_json, bvsi_df, per_cat_df, err_pairs_df
 
 
+@st.cache_data
+def load_taxonomy_analysis_data():
+    """Load precomputed taxonomy analysis artifacts from results/ and config/."""
+    json_path = ROOT_DIR / "results" / "taxonomy_experiment_data.json"
+    comp_csv_path = ROOT_DIR / "results" / "taxonomy_experiment.csv"
+    audit_json_path = ROOT_DIR / "results" / "taxonomy_audit.json"
+    audit_csv_path = ROOT_DIR / "results" / "taxonomy_audit.csv"
+    cfg_v1_path = ROOT_DIR / "config" / "taxonomy_v1_conservative.json"
+    cfg_v2_path = ROOT_DIR / "config" / "taxonomy_v2_broad.json"
+
+    tax_json = None
+    comp_df = None
+    audit_json = None
+    audit_df = None
+    cfg_v1 = None
+    cfg_v2 = None
+
+    if json_path.exists():
+        with open(json_path, "r", encoding="utf-8") as f:
+            tax_json = json.load(f)
+    if comp_csv_path.exists():
+        comp_df = pd.read_csv(comp_csv_path)
+    if audit_json_path.exists():
+        with open(audit_json_path, "r", encoding="utf-8") as f:
+            audit_json = json.load(f)
+    if audit_csv_path.exists():
+        audit_df = pd.read_csv(audit_csv_path)
+    if cfg_v1_path.exists():
+        with open(cfg_v1_path, "r", encoding="utf-8") as f:
+            cfg_v1 = json.load(f)
+    if cfg_v2_path.exists():
+        with open(cfg_v2_path, "r", encoding="utf-8") as f:
+            cfg_v2 = json.load(f)
+
+    return tax_json, comp_df, audit_json, audit_df, cfg_v1, cfg_v2
+
+
 # ----------------------------------------------------------------------
 # Sidebar Navigation
 # ----------------------------------------------------------------------
@@ -172,6 +209,7 @@ section = st.sidebar.radio(
         "CFPB Live API & Data Explorer",
         "Model Evaluation & Diagnostics",
         "Error Analysis",
+        "Taxonomy Analysis",
         "Cosine Similarity Retrieval",
         "Complaint Categorisation",
         "Text Preprocessing & TF-IDF",
@@ -756,6 +794,182 @@ elif section == "Error Analysis":
                                 height=150, disabled=True,
                                 key=f"ex_{selected_pair}_{i}",
                             )
+
+
+
+# ----------------------------------------------------------------------
+# SECTION 3c: TAXONOMY ANALYSIS
+# ----------------------------------------------------------------------
+
+elif section == "Taxonomy Analysis":
+    st.subheader("🏛️ Taxonomy-Aware Complaint Classification Analysis")
+    st.markdown(
+        """
+        Investigating whether CFPB complaint classification difficulty is driven by linguistic ambiguity or by 
+        **documented administrative taxonomy revisions** (April 2017 and 2019) that left historical label variants in the database.
+
+        > **Academic Objective:** This milestone tests task formulation rather than tuning for maximum F1.
+        > The original 18-category model remains the primary reference. Two deterministic taxonomies 
+        > were pre-defined before evaluation based on official CFPB sources:
+        > - **v1 Conservative (11 Categories):** Consolidates only CFPB-documented renames/mergers; keeps `Consumer Loan` separate.
+        > - **v2 Broad (10 Categories):** Additionally merges `Consumer Loan` into the consumer/small-dollar loan group.
+        """
+    )
+
+    tax_json, comp_df, audit_json, audit_df, cfg_v1, cfg_v2 = load_taxonomy_analysis_data()
+
+    if tax_json is None or comp_df is None:
+        st.warning("Taxonomy experiment artifacts not found. Please run `python scripts/run_taxonomy_experiment.py`.")
+    else:
+        # High-level KPIs
+        ref_m = tax_json["models"]["reference_18"]["metrics"]
+        v1_m = tax_json["models"]["v1_conservative"]["metrics"]
+        v2_m = tax_json["models"]["v2_broad"]["metrics"]
+        audit_counts = tax_json.get("audit_asserted_errors", {})
+
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.metric("Ref. (18 Cats) Accuracy", f"{ref_m['accuracy']:.2%}")
+            st.caption("Macro F1: " + f"{ref_m['macro_f1']:.4f}")
+        with c2:
+            st.metric("v1 (11 Cats) Accuracy", f"{v1_m['accuracy']:.2%}", delta=f"{v1_m['accuracy'] - ref_m['accuracy']:+.2%}")
+            st.caption(f"Macro F1: {v1_m['macro_f1']:.4f} ({v1_m['macro_f1'] - ref_m['macro_f1']:+.4f})")
+        with c3:
+            st.metric("v2 (10 Cats) Accuracy", f"{v2_m['accuracy']:.2%}", delta=f"{v2_m['accuracy'] - ref_m['accuracy']:+.2%}")
+            st.caption(f"Macro F1: {v2_m['macro_f1']:.4f} ({v2_m['macro_f1'] - ref_m['macro_f1']:+.4f})")
+        with c4:
+            st.metric("Intra-Group Errors", f"{audit_counts.get('conservative_intra_errors', 608)} / {audit_counts.get('total_test_errors', 1522)}")
+            st.caption("39.9% of all test errors are intra-variant")
+
+        st.markdown("---")
+
+        tab_comp, tab_mapping, tab_loss, tab_cross, tab_percat = st.tabs([
+            "Cross-Taxonomy Benchmarks",
+            "Taxonomy Mappings & CFPB Evidence",
+            "Information Loss Accounting",
+            "Error Elimination Dissection",
+            "Per-Category Normalized Performance"
+        ])
+
+        with tab_comp:
+            st.markdown("#### Comparative Experimental Results Across Formulations")
+            st.markdown(
+                "All models trained using the identical 20,000-sample pool (16k train / 4k val) and evaluated on the "
+                "identical 5,000-sample untouched holdout test set using Word+Char TF-IDF (237,148 features) and Logistic Regression."
+            )
+            st.dataframe(comp_df, use_container_width=True)
+
+            st.info(
+                "💡 **Key Observation:** Both normalized formulations produce higher Accuracy (~81-82%) and Macro F1 (~68-73%). "
+                "Crucially, this is **not** evidence that the normalized models are inherently superior classifiers; rather, "
+                "it demonstrates that ~40% of baseline errors stemmed from requiring the model to separate historically synonymous labels."
+            )
+
+        with tab_mapping:
+            st.markdown("#### Documented Taxonomy Formulations & CFPB Rationale")
+            tax_choice = st.radio("Select Taxonomy Variant:", ["v1 Conservative (11 Categories)", "v2 Broad (10 Categories)"], horizontal=True)
+            chosen_cfg = cfg_v1 if "v1" in tax_choice else cfg_v2
+
+            if chosen_cfg:
+                st.markdown(f"**Description:** {chosen_cfg.get('description', '')}")
+                mapping_rows = []
+                for orig, entry in chosen_cfg["mapping"].items():
+                    mapping_rows.append({
+                        "Original CFPB Category": orig,
+                        "Normalized Target Category": entry["normalized_category"],
+                        "Evidence Type": entry["evidence_type"],
+                        "CFPB Documentation Source": entry["cfpb_source"],
+                        "Historical Context / Rationale": entry["evidence_description"]
+                    })
+                st.dataframe(pd.DataFrame(mapping_rows), use_container_width=True)
+
+        with tab_loss:
+            st.markdown("#### Information Loss Analysis")
+            st.markdown(
+                """
+                Taxonomy normalization inevitably collapses distinctions between original categories.
+                The table below quantifies the exact records affected and documents the specific regulatory 
+                and product-domain distinctions that are surrendered in each consolidation:
+                """
+            )
+            loss_choice = st.radio("Select Variant for Information Loss:", ["v1 Conservative (11 Categories)", "v2 Broad (10 Categories)"], horizontal=True, key="loss_radio")
+            active_loss = tax_json["models"]["v1_conservative"]["information_loss"] if "v1" in loss_choice else tax_json["models"]["v2_broad"]["information_loss"]
+
+            col_a, col_b, col_c = st.columns(3)
+            with col_a:
+                st.metric("Total Records Affected", f"{active_loss['total_records_affected']:,}")
+            with col_b:
+                st.metric("Dataset Share Affected", f"{active_loss['percentage_dataset_affected']}%")
+            with col_c:
+                st.metric("Original Categories Merged", f"{active_loss['num_labels_merged']} -> {len(active_loss['merged_groups'])}")
+
+            st.markdown("##### Detailed Breakdown by Merged Category Group")
+            loss_rows = []
+            info_dict = (cfg_v1 if "v1" in loss_choice else cfg_v2).get("information_loss", {})
+            for grp, details in active_loss["merged_groups"].items():
+                loss_rows.append({
+                    "Normalized Target": grp,
+                    "Merged Original Labels": ", ".join(details["original_categories"]),
+                    "Records Remapped": f"{details['records_affected']:,} ({details['percentage_of_dataset']}%)",
+                    "Specific Information Lost": info_dict.get(grp, "N/A")
+                })
+            st.dataframe(pd.DataFrame(loss_rows), use_container_width=True)
+
+        with tab_cross:
+            st.markdown("#### Dissecting Error Elimination: Task Collapse vs. Classifier Generalization")
+            st.markdown(
+                """
+                A central academic requirement is distinguishing:
+                1. **Errors eliminated purely because the task collapsed labels** (e.g. predicting *Credit card* when actual was *Credit card or prepaid card*).
+                2. **Net performance change from retraining** the classifier on the new consolidated decision boundary.
+                """
+            )
+            dissect_v1 = tax_json["models"]["v1_conservative"]["cross_task_error_dissection"]
+            dissect_v2 = tax_json["models"]["v2_broad"]["cross_task_error_dissection"]
+
+            dissect_df = pd.DataFrame([
+                {
+                    "Metric": "Total Errors on Original 18-Category Task",
+                    "v1 Conservative (11 Cats)": f"{dissect_v1['original_errors']:,}",
+                    "v2 Broad (10 Cats)": f"{dissect_v2['original_errors']:,}"
+                },
+                {
+                    "Metric": "Errors Eliminated Mechanically by Label Collapse",
+                    "v1 Conservative (11 Cats)": f"{dissect_v1['errors_eliminated_purely_by_collapse']:,} ({dissect_v1['errors_eliminated_purely_by_collapse']/1522*100:.1f}%)",
+                    "v2 Broad (10 Cats)": f"{dissect_v2['errors_eliminated_purely_by_collapse']:,} ({dissect_v2['errors_eliminated_purely_by_collapse']/1522*100:.1f}%)"
+                },
+                {
+                    "Metric": "Errors Remaining if Predictions Merely Post-Hoc Remapped",
+                    "v1 Conservative (11 Cats)": f"{dissect_v1['post_hoc_collapsed_errors']:,}",
+                    "v2 Broad (10 Cats)": f"{dissect_v2['post_hoc_collapsed_errors']:,}"
+                },
+                {
+                    "Metric": "Actual Errors of Model Retrained on Normalized Labels",
+                    "v1 Conservative (11 Cats)": f"{dissect_v1['retrained_normalized_errors']:,}",
+                    "v2 Broad (10 Cats)": f"{dissect_v2['retrained_normalized_errors']:,}"
+                },
+                {
+                    "Metric": "Net Error Reduction from Dedicated Retraining",
+                    "v1 Conservative (11 Cats)": f"{dissect_v1['retraining_net_error_reduction']:+d} errors",
+                    "v2 Broad (10 Cats)": f"{dissect_v2['retraining_net_error_reduction']:+d} errors"
+                }
+            ])
+            st.table(dissect_df)
+
+        with tab_percat:
+            st.markdown("#### Per-Category Performance on Normalized Holdout Test Set (N=5,000)")
+            variant_sel = st.selectbox("Select Model to Inspect:", ["v1 Conservative (11 Categories)", "v2 Broad (10 Categories)"])
+            m_key = "v1_conservative" if "v1" in variant_sel else "v2_broad"
+            per_cat_data = pd.DataFrame(tax_json["models"][m_key]["per_category"])
+            st.dataframe(
+                per_cat_data.style.format({
+                    "precision": "{:.4f}",
+                    "recall": "{:.4f}",
+                    "f1": "{:.4f}",
+                    "support": "{:,}"
+                }).background_gradient(subset=["f1"], cmap="RdYlGn"),
+                use_container_width=True
+            )
 
 
 # ----------------------------------------------------------------------
