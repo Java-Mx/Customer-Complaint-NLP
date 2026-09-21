@@ -134,6 +134,32 @@ def load_evaluation_summary():
     return metrics_data, comparison_df
 
 
+@st.cache_data
+def load_error_analysis_data():
+    """Load precomputed error analysis artifacts from results/."""
+    json_path = ROOT_DIR / "results" / "error_analysis_data.json"
+    bvsi_path = ROOT_DIR / "results" / "baseline_vs_improved.csv"
+    per_cat_path = ROOT_DIR / "results" / "per_category_metrics.csv"
+    err_pairs_path = ROOT_DIR / "results" / "error_analysis.csv"
+
+    ea_json = None
+    bvsi_df = None
+    per_cat_df = None
+    err_pairs_df = None
+
+    if json_path.exists():
+        with open(json_path, "r", encoding="utf-8") as f:
+            ea_json = json.load(f)
+    if bvsi_path.exists():
+        bvsi_df = pd.read_csv(bvsi_path)
+    if per_cat_path.exists():
+        per_cat_df = pd.read_csv(per_cat_path)
+    if err_pairs_path.exists():
+        err_pairs_df = pd.read_csv(err_pairs_path)
+
+    return ea_json, bvsi_df, per_cat_df, err_pairs_df
+
+
 # ----------------------------------------------------------------------
 # Sidebar Navigation
 # ----------------------------------------------------------------------
@@ -145,6 +171,7 @@ section = st.sidebar.radio(
         "System Architecture",
         "CFPB Live API & Data Explorer",
         "Model Evaluation & Diagnostics",
+        "Error Analysis",
         "Cosine Similarity Retrieval",
         "Complaint Categorisation",
         "Text Preprocessing & TF-IDF",
@@ -457,11 +484,286 @@ elif section == "Model Evaluation & Diagnostics":
                 st.info("results/model_comparison.csv not found.")
 
 
+
+# ----------------------------------------------------------------------
+# SECTION 3b: ERROR ANALYSIS
+# ----------------------------------------------------------------------
+
+elif section == "Error Analysis":
+    st.subheader("🔎 Classification Error Analysis")
+    st.markdown(
+        """
+        Comprehensive diagnostic analysis of the **final trained model** evaluated on the untouched
+        **5,000-record holdout test set**. All artifacts are precomputed — the model is **not** modified.
+
+        > **Note:** This analysis is diagnostic only. The classifier, vectorizers, and train/test splits
+        > are unchanged. Results are loaded from pre-generated CSV and JSON files.
+        """
+    )
+
+    ea_json, bvsi_df, per_cat_df, err_pairs_df = load_error_analysis_data()
+
+    if ea_json is None:
+        st.warning(
+            "Error analysis artifacts not found. "
+            "Run `python scripts/generate_error_analysis.py` to generate them."
+        )
+    else:
+        # Tab layout
+        tab_overview, tab_baseline, tab_pairs, tab_percat, tab_confidence, tab_examples = st.tabs([
+            "Overall Performance",
+            "Controlled Baseline vs. Improved",
+            "Top Confusion Pairs",
+            "Per-Category Metrics",
+            "Confidence Analysis",
+            "Error Examples",
+        ])
+
+        # --- Tab 1: Overall Performance ---
+        with tab_overview:
+            st.markdown("#### Final Model — Holdout Test Set Performance (N = 5,000)")
+            m = ea_json["improved_metrics"]
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Overall Accuracy", f"{m['accuracy']:.2%}")
+                st.metric("Macro Precision", f"{m['macro_precision']:.4f}")
+            with col2:
+                st.metric("Macro F1-Score", f"{m['macro_f1']:.4f}")
+                st.metric("Macro Recall", f"{m['macro_recall']:.4f}")
+            with col3:
+                st.metric("Weighted F1-Score", f"{m['weighted_f1']:.4f}")
+                st.metric("Weighted Precision", f"{m['weighted_precision']:.4f}")
+
+            meta = ea_json["analysis_metadata"]
+            st.markdown("---")
+            st.markdown("#### Dataset & Split Configuration")
+            split_info = {
+                "Partition": ["Full Dataset", "Training Pool", "Train Subset", "Validation Subset", "Holdout Test Set"],
+                "Records": [
+                    f"{meta['total_records']:,}",
+                    f"{meta['training_pool']:,}",
+                    f"{meta['train_subset']:,}",
+                    f"{meta['val_subset']:,}",
+                    f"{meta['test_records']:,}",
+                ],
+                "Share": ["100%", "80%", "64%", "16%", "20%"],
+            }
+            st.table(pd.DataFrame(split_info))
+
+            cfg = ea_json["model_config"]
+            st.markdown("#### Final Model Configuration")
+            cfg_rows = {
+                "Parameter": [
+                    "Classifier", "Solver", "C (regularization)", "class_weight",
+                    "max_iter", "Word n-gram range", "Char n-gram range",
+                    "Char analyzer", "Total feature dimensions",
+                ],
+                "Value": [
+                    cfg["type"], cfg["solver"], cfg["C"], cfg["class_weight"],
+                    cfg["max_iter"], str(cfg["word_ngram_range"]),
+                    str(cfg["char_ngram_range"]), cfg["char_analyzer"],
+                    f"{cfg['total_features']:,}",
+                ],
+            }
+            st.table(pd.DataFrame(cfg_rows))
+
+        # --- Tab 2: Controlled Baseline vs Improved ---
+        with tab_baseline:
+            st.markdown("#### Controlled Same-Split Comparison: Baseline vs. Improved Model")
+            st.markdown(
+                """
+                Both models are evaluated on the **identical 5,000-record holdout test set**.
+                The baseline uses the original Word TF-IDF + no class weighting configuration.
+                Only this comparison is a methodologically valid apples-to-apples contrast.
+
+                > ⚠️ The historical baseline (from an earlier 600-record experiment) used a
+                > different split size and 17 categories — it is documented separately and
+                > cannot be compared directly with these numbers.
+                """
+            )
+            if bvsi_df is not None:
+                styled_bvsi = bvsi_df.copy()
+                styled_bvsi.columns = [
+                    "Metric",
+                    "Baseline (Word TF-IDF, no balancing)",
+                    "Improved (Combined TF-IDF, balanced)",
+                    "Absolute Diff (pp)",
+                    "Relative Change (%)",
+                ]
+                st.dataframe(
+                    styled_bvsi.style.format({
+                        "Baseline (Word TF-IDF, no balancing)": "{:.4f}",
+                        "Improved (Combined TF-IDF, balanced)": "{:.4f}",
+                        "Absolute Diff (pp)": "{:+.4f}",
+                        "Relative Change (%)": "{:+.2f}%",
+                    }),
+                    use_container_width=True,
+                )
+            else:
+                st.info("baseline_vs_improved.csv not found.")
+
+        # --- Tab 3: Confusion Pairs ---
+        with tab_pairs:
+            st.markdown("#### Top Confusion Pairs (Actual → Predicted)")
+            top_pairs = pd.DataFrame(ea_json["top20_confusion_pairs"])
+            if not top_pairs.empty:
+                top_pairs.columns = [
+                    "Actual Category", "Predicted Category", "Error Count", "% of Actual Class"
+                ]
+                st.dataframe(
+                    top_pairs.style.format({
+                        "Error Count": "{:,}",
+                        "% of Actual Class": "{:.2f}%",
+                    }).background_gradient(subset=["Error Count"], cmap="Reds"),
+                    use_container_width=True,
+                )
+
+            # Full confusion matrix image
+            st.markdown("---")
+            st.markdown("#### 18 × 18 Confusion Matrix Heatmap")
+            cm_img = ROOT_DIR / "results" / "confusion_matrix.png"
+            if cm_img.exists():
+                st.image(str(cm_img), caption="Confusion Matrix — Final Model on N=5,000 Test Set",
+                         use_container_width=True)
+            else:
+                st.info("Confusion matrix image not found at results/confusion_matrix.png.")
+
+        # --- Tab 4: Per-Category Metrics ---
+        with tab_percat:
+            st.markdown("#### Per-Category Performance on the 5,000-Record Test Set")
+            if per_cat_df is not None:
+                display_df = per_cat_df[[
+                    "category", "support", "correct", "incorrect",
+                    "precision", "recall", "f1",
+                    "primary_confusion_category", "primary_confusion_count",
+                ]].copy()
+                display_df.columns = [
+                    "Category", "Support", "Correct", "Incorrect",
+                    "Precision", "Recall", "F1",
+                    "Primary Confusion Target", "Confusion Count",
+                ]
+                st.dataframe(
+                    display_df.style.format({
+                        "Precision": "{:.4f}",
+                        "Recall": "{:.4f}",
+                        "F1": "{:.4f}",
+                    }).background_gradient(subset=["F1"], cmap="RdYlGn"),
+                    use_container_width=True,
+                )
+
+                st.markdown("---")
+                # Class distribution with recall and F1
+                st.markdown("#### Class Distribution Across Splits vs. Test Recall & F1")
+                dist_data = pd.DataFrame(ea_json["class_distribution"]["by_category"])
+                corr_r = ea_json["class_distribution"]["corr_test_support_vs_recall"]
+                corr_f = ea_json["class_distribution"]["corr_test_support_vs_f1"]
+                st.info(
+                    f"Pearson correlation — test support vs recall: **{corr_r:.3f}** | "
+                    f"test support vs F1: **{corr_f:.3f}**"
+                )
+                st.dataframe(dist_data, use_container_width=True)
+            else:
+                st.info("per_category_metrics.csv not found.")
+
+        # --- Tab 5: Confidence Analysis ---
+        with tab_confidence:
+            st.markdown("#### Prediction Probability Analysis (LogisticRegression predict_proba)")
+            st.markdown(
+                """
+                The table below summarises the **predicted class probability** distribution
+                for correctly classified and incorrectly classified predictions separately.
+
+                > ⚠️ LogisticRegression probability outputs are **not calibrated** unless
+                > a calibration procedure (e.g., `CalibratedClassifierCV`) has been applied.
+                > These probabilities should be interpreted as model confidence scores only.
+                """
+            )
+            conf = ea_json.get("confidence_analysis", {})
+            if conf:
+                correct_pred = conf.get("correct", {}).get("predicted_class_prob", {})
+                incorrect_pred = conf.get("incorrect", {}).get("predicted_class_prob", {})
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("High-Confidence Errors (≥ 0.70)", str(conf.get("high_confidence_errors", "N/A")))
+                with col2:
+                    st.metric("Low-Confidence Errors (< 0.40)", str(conf.get("low_confidence_errors", "N/A")))
+                with col3:
+                    total_correct = correct_pred.get("count", 0)
+                    total_incorrect = incorrect_pred.get("count", 0)
+                    st.metric("Total Incorrect Predictions", f"{total_incorrect:,}")
+
+                if correct_pred and incorrect_pred:
+                    stats_table = {
+                        "Statistic": ["Count", "Mean Probability", "Median", "Q1 (25th pct)",
+                                      "Q3 (75th pct)", "Min", "Max",
+                                      "% High (≥ 0.70)", "% Medium (0.40–0.69)", "% Low (< 0.40)"],
+                        "Correct Predictions": [
+                            f"{correct_pred['count']:,}",
+                            f"{correct_pred['mean']:.4f}",
+                            f"{correct_pred['median']:.4f}",
+                            f"{correct_pred['q1']:.4f}",
+                            f"{correct_pred['q3']:.4f}",
+                            f"{correct_pred['min']:.4f}",
+                            f"{correct_pred['max']:.4f}",
+                            f"{correct_pred['pct_high']:.1f}%",
+                            f"{correct_pred['pct_medium']:.1f}%",
+                            f"{correct_pred['pct_low']:.1f}%",
+                        ],
+                        "Incorrect Predictions": [
+                            f"{incorrect_pred['count']:,}",
+                            f"{incorrect_pred['mean']:.4f}",
+                            f"{incorrect_pred['median']:.4f}",
+                            f"{incorrect_pred['q1']:.4f}",
+                            f"{incorrect_pred['q3']:.4f}",
+                            f"{incorrect_pred['min']:.4f}",
+                            f"{incorrect_pred['max']:.4f}",
+                            f"{incorrect_pred['pct_high']:.1f}%",
+                            f"{incorrect_pred['pct_medium']:.1f}%",
+                            f"{incorrect_pred['pct_low']:.1f}%",
+                        ],
+                    }
+                    st.table(pd.DataFrame(stats_table))
+            else:
+                st.info("Confidence analysis data not found in error_analysis_data.json.")
+
+        # --- Tab 6: Error Examples ---
+        with tab_examples:
+            st.markdown("#### Representative Error Cases (Top Confusion Pairs)")
+            st.markdown(
+                "Up to 5 actual test-set complaints per confusion pair. "
+                "Complaint texts are truncated for readability."
+            )
+            examples = ea_json.get("error_examples", {})
+            if not examples:
+                st.info("Error examples not available.")
+            else:
+                pair_options = list(examples.keys())
+                selected_pair = st.selectbox("Select confusion pair:", pair_options)
+                if selected_pair:
+                    pair_examples = examples[selected_pair]
+                    st.markdown(f"**{len(pair_examples)} example(s) for: `{selected_pair}`**")
+                    for i, ex in enumerate(pair_examples, 1):
+                        with st.expander(
+                            f"Example {i} — Test Index {ex['complaint_index']}: "
+                            f"Actual `{ex['actual_category']}` → Predicted `{ex['predicted_category']}`"
+                        ):
+                            st.markdown(f"- **Actual:** `{ex['actual_category']}`")
+                            st.markdown(f"- **Predicted:** `{ex['predicted_category']}`")
+                            st.markdown("**Complaint Text (truncated):**")
+                            st.text_area(
+                                "", value=ex["complaint_text_truncated"],
+                                height=150, disabled=True,
+                                key=f"ex_{selected_pair}_{i}",
+                            )
+
+
 # ----------------------------------------------------------------------
 # SECTION 4: COSINE SIMILARITY RETRIEVAL
 # ----------------------------------------------------------------------
 
 elif section == "Cosine Similarity Retrieval":
+
     st.subheader("🔍 Cosine Similarity Nearest-Neighbor Complaint Retrieval")
     st.markdown(
         """
