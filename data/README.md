@@ -1,58 +1,63 @@
-# Dataset Documentation
+# CFPB Consumer Complaint Dataset Documentation
 
-## Dataset Name
-**Consumer Complaint Database**
+## 1. Dataset Name
+**Consumer Complaint Database** (CFPB Consumer Financial Complaints with Published Narratives)
 
-## Official Source
-- **Provider**: Consumer Financial Protection Bureau (CFPB), a U.S. government agency.
-- **Official URL**: [https://www.consumerfinance.gov/data-research/consumer-complaints/](https://www.consumerfinance.gov/data-research/consumer-complaints/)
-- **Data Catalog URL**: [https://catalog.data.gov/dataset/consumer-complaint-database](https://catalog.data.gov/dataset/consumer-complaint-database)
+## 2. Official Source
+- **Originating Agency**: Consumer Financial Protection Bureau (CFPB), U.S. Federal Government
+- **Official Portal**: [https://www.consumerfinance.gov/data-research/consumer-complaints/](https://www.consumerfinance.gov/data-research/consumer-complaints/)
+- **Data Catalog Entry**: [https://catalog.data.gov/dataset/consumer-complaint-database](https://catalog.data.gov/dataset/consumer-complaint-database)
+- **Direct Database Archive**: [https://files.consumerfinance.gov/ccdb/complaints.csv.zip](https://files.consumerfinance.gov/ccdb/complaints.csv.zip)
 
-## How to Download
-1. Visit the official CFPB complaints portal at:
-   `https://www.consumerfinance.gov/data-research/consumer-complaints/`
-2. Apply any relevant filters if you wish to download a subset (e.g., complaints with narrative text only, or specific date windows).
-3. Click the **Export the data** or **Download data** button and select **CSV format**.
-4. Alternatively, use the CFPB public Open Data API or export direct snapshot CSVs as documented on their website.
+## 3. Download & Acquisition Instructions
+1. Navigate to the [CFPB Consumer Complaint Database](https://www.consumerfinance.gov/data-research/consumer-complaints/).
+2. To download complaints containing narrative text, use the dataset export or historical narrative archives where consumers provided consent to publish their narrative (`Consumer consent provided?` = "Consent provided").
+3. Place the downloaded CSV file in this directory:
+   - Full dataset: `data/complaints.csv`
+   - Sample dataset: `data/complaints_sample.csv`
 
-## Where to Place the Downloaded Dataset
-- Place the downloaded CSV file into this directory:
-  `data/complaints.csv`
-- For local testing and development with smaller slices, save the sampled dataset as:
-  `data/complaints_sample.csv`
-- **Important**: The raw dataset files (`*.csv`) are ignored by Git via `.gitignore` and should never be committed to the repository due to file size constraints.
+## 4. Local File Handling & Git Exclusion
+- **Critical Policy**: All CSV files in `data/` (`*.csv`) are strictly excluded from GitHub version control via the project `.gitignore`.
+- Raw complaint databases range from hundreds of megabytes to several gigabytes and contain consumer-submitted textual disclosures. They must remain strictly local.
 
-## Expected Input Format
-- **Format**: Delimited text file (`.csv`), encoded in UTF-8.
-- **Primary Text Feature Column**:
-  - `Consumer complaint narrative`: Contains the raw unstructured text of the customer's complaint submission.
-- **Primary Target / Category Column**:
-  - `Product`: The high-level financial product/service category (e.g., *Credit reporting, repair, or other*, *Debt collection*, *Mortgage*, *Credit card or prepaid card*, *Student loan*, *Checking or savings account*).
+## 5. Actual Inspected Columns & Schema
+Based on direct inspection of the downloaded CFPB dataset (`data/complaints.csv`), the file contains **19 columns** and **25,000 complaint records**:
 
-## Official CFPB Schema Reference
-The complete CFPB dataset schema includes the following standard fields:
-
-| Column Name | Description | Role in Pipeline |
+| Column Name | Description | Role in NLP Project |
 |---|---|---|
-| `Date received` | Date the complaint was received by CFPB | Metadata |
-| `Product` | High-level product category | **Target Label** (Categorisation) |
-| `Sub-product` | Granular sub-category of the product | Metadata / Fine-grained label |
-| `Issue` | The issue the consumer reported | Context / Optional label |
-| `Sub-issue` | Detailed breakdown of the issue | Context |
-| `Consumer complaint narrative` | Unstructured text submitted by consumer | **Input Text** (Feature for NLP) |
-| `Company public response` | Optional company response text | Metadata |
-| `Company` | Name of the financial institution | Metadata |
-| `State` | Two-letter state code of complainant | Demographic metadata |
-| `ZIP code` | Complainant ZIP code | Demographic metadata |
-| `Tags` | Special demographic tags (e.g., Servicemember, Older American) | Metadata |
-| `Consumer consent provided?` | Whether consumer consented to publish narrative | Filter (requires 'Consent provided') |
-| `Submitted via` | Submission channel (Web, Referral, Phone, Postal mail, Fax) | Metadata |
-| `Date sent to company` | Date CFPB forwarded complaint to company | Metadata |
-| `Company response to consumer` | Company's formal resolution classification | Metadata |
-| `Timely response?` | Whether company responded within deadline | Metadata |
-| `Consumer disputed?` | Whether consumer disputed the resolution | Metadata |
-| `Complaint ID` | Unique numerical identifier for complaint | Identifier |
+| `Complaint ID` | Unique numeric identifier for the complaint | Primary key / Record Identifier |
+| `Date received` | Date the complaint was logged with CFPB | Temporal metadata |
+| `Product` | High-level financial product/service category | **Target Label (Categorisation)** |
+| `Sub-product` | Detailed sub-category under product | Fine-grained category |
+| `Issue` | Reported problem or dispute type | Issue metadata |
+| `Sub-issue` | Detailed specification of the issue | Issue metadata |
+| `Consumer Complaint` | Unstructured customer narrative text | **Primary Feature (NLP Input)** |
+| `Company Public Response` | Public response statement from the financial institution | Metadata |
+| `Company` | Name of the responding financial institution | Entity metadata |
+| `State` | Two-letter complainant state code | Geographic metadata |
+| `ZIP code` | Complainant ZIP code | Geographic metadata |
+| `Tags` | Special demographic tags (e.g., Servicemember, Older American) | Demographic metadata |
+| `Consumer consent provided?` | Consent status for narrative publication | Audit metadata |
+| `Submitted via` | Submission channel (Web, Referral, Phone, etc.) | Channel metadata |
+| `Date Sent to Company` | Date CFPB dispatched complaint to company | Workflow metadata |
+| `Company Response to Consumer` | Company's formal resolution classification | Resolution metadata |
+| `Timely response?` | Whether the company responded within deadline | Service level metadata |
+| `Consumer disputed?` | Whether the consumer disputed company response | Outcome metadata |
+| `Unnamed: 18` | Trailing empty column delimiter artifact | Excluded |
 
-## Important Notice
-- Only complaints where `Consumer complaint narrative` is non-empty (`Consumer consent provided?` = "Consent provided") are usable for text similarity and NLP classification tasks.
-- Do not commit large CSV files to Git.
+## 6. Column Mapping Adaptation
+Different CFPB export snapshots and historical mirrors occasionally format column names with slight variations. The project loader (`src/data_loader.py`) implements automatic column resolution for:
+
+- **Complaint Text**:
+  - `Consumer Complaint` (CFPB narrative archive format)
+  - `Consumer complaint narrative` (CFPB official portal export format)
+  - `complaint_what_happened` (CFPB API field name)
+- **Product Category**:
+  - `Product` (standard CFPB column name)
+  - `product` (lowercased format)
+- **Complaint ID**:
+  - `Complaint ID` (standard CFPB column name)
+  - `complaint_id` (lowercased format)
+
+The loader maps these columns to standardized internal names:
+`text`, `category`, and `complaint_id`.
