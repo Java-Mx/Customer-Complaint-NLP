@@ -1,10 +1,12 @@
 """Streamlit Web Application for Customer Complaint Similarity & Categorisation.
 
 Provides an interactive user interface to explore complaints, demonstrate preprocessing,
-TF-IDF vectorisation, and cosine-similarity-based nearest-neighbor complaint retrieval.
+TF-IDF vectorisation, cosine-similarity-based retrieval, and supervised complaint classification.
 """
 
 from pathlib import Path
+import joblib
+import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -12,6 +14,16 @@ from src.data_loader import load_dataset
 from src.preprocessing import clean_text, preprocess_text, preprocess_series
 from src.vectorization import create_vectorizer, fit_transform_corpus, fit_transform_tfidf
 from src.similarity import find_similar_complaints, compute_cosine_similarity
+from src.classification import (
+    create_classifier,
+    fit_classifier,
+    load_classifier,
+    predict_categories,
+    predict_category_proba,
+    predict_complaint_category,
+    save_classifier,
+    train_test_split_data,
+)
 
 st.set_page_config(
     page_title="Customer Complaint Similarity & Categorisation",
@@ -57,6 +69,58 @@ def load_cached_corpus():
         fitted_vec, matrix = fit_transform_corpus(df["clean_text"], vectorizer=vec)
         return df, fitted_vec, matrix
 
+
+@st.cache_resource
+def load_cached_classifier():
+    """Load or train a cached Logistic Regression model and vectorizer for live inference."""
+    model_path = Path("models/complaint_classifier.joblib")
+    vec_path = Path("models/tfidf_vectorizer.joblib")
+
+    if model_path.exists() and vec_path.exists():
+        try:
+            clf = load_classifier(model_path)
+            vec = joblib.load(vec_path)
+            return clf, vec
+        except Exception:
+            pass
+
+    # Fallback to local training on complaints.csv sample if serialized files unavailable
+    data_path = Path("data/complaints.csv")
+    if data_path.exists():
+        df = load_dataset(data_path, nrows=2000, drop_invalid=True)
+        X_train, _, y_train, _ = train_test_split_data(df, test_size=0.20, random_state=42, stratify=True)
+        clean_train = preprocess_series(X_train)
+        vec = create_vectorizer(ngram_range=(1, 2), min_df=2, sublinear_tf=True, lowercase=False)
+        vec, X_train_tfidf = fit_transform_corpus(clean_train, vectorizer=vec)
+        clf = create_classifier(C=1.0, max_iter=1000, random_state=42)
+        clf = fit_classifier(clf, X_train_tfidf, y_train)
+
+        # Save for future use
+        model_path.parent.mkdir(parents=True, exist_ok=True)
+        save_classifier(clf, model_path)
+        joblib.dump(vec, vec_path)
+        return clf, vec
+    else:
+        # Curated fallback sample
+        records = [
+            {"text": "fraudulent charge on credit card statement", "category": "Credit Card"},
+            {"text": "credit card annual fee billing dispute", "category": "Credit Card"},
+            {"text": "mortgage servicer foreclosure loan modification", "category": "Mortgage"},
+            {"text": "lender escrow monthly mortgage payment increase", "category": "Mortgage"},
+            {"text": "harassing phone calls from debt collection agency", "category": "Debt Collection"},
+            {"text": "debt collector demanding payment for invalid debt", "category": "Debt Collection"},
+            {"text": "student loan repayment plan interest capitalization", "category": "Student Loan"},
+            {"text": "student loan servicer misapplied payment", "category": "Student Loan"},
+        ]
+        df = pd.DataFrame(records)
+        clean_train = preprocess_series(df["text"])
+        vec = create_vectorizer(ngram_range=(1, 2), min_df=1, sublinear_tf=True, lowercase=False)
+        vec, X_train_tfidf = fit_transform_corpus(clean_train, vectorizer=vec)
+        clf = create_classifier(C=1.0, max_iter=1000, random_state=42)
+        clf = fit_classifier(clf, X_train_tfidf, df["category"])
+        return clf, vec
+
+
 st.sidebar.header("Navigation")
 section = st.sidebar.radio(
     "Select Mode",
@@ -65,7 +129,7 @@ section = st.sidebar.radio(
         "Preprocessing Demo",
         "TF-IDF Demo",
         "Cosine Similarity Demo",
-        "Classify Complaint"
+        "Complaint Categorisation Demo"
     ]
 )
 
@@ -86,7 +150,7 @@ if section == "Overview & Pipeline":
           │                                 │
           ▼                                 ▼
         Cosine Similarity             Classification
-          │                        (Supervised Classifier)
+          │                        (Logistic Regression)
           ▼                                 ▼
         Top-K Similar Complaints       Predicted Category
                                             ↓
@@ -96,8 +160,9 @@ if section == "Overview & Pipeline":
         """
     )
     st.info(
-        "Current Milestone: Text preprocessing, TF-IDF vectorisation, and Cosine Similarity retrieval are complete. "
-        "Complaint classification and model evaluation will be developed in the upcoming milestone."
+        "Current Milestone: Text preprocessing, TF-IDF vectorisation, Cosine Similarity retrieval, "
+        "and Multinomial Logistic Regression complaint classification are complete. "
+        "Formal model evaluation and confusion matrix diagnostics are scheduled for the next milestone."
     )
 
 elif section == "Preprocessing Demo":
@@ -262,24 +327,87 @@ elif section == "Cosine Similarity Demo":
                         st.write(text)
                     st.divider()
 
-elif section == "Classify Complaint":
-    st.subheader("Predict Complaint Product Category")
+elif section == "Complaint Categorisation Demo":
+    st.subheader("🎯 Supervised Complaint Categorisation Demo")
     st.markdown(
         """
-        Supervised classification predicting complaint product categories (e.g., *Credit Card*, 
-        *Mortgage*, *Debt Collection*) will be implemented in the next development milestone.
+        Classify customer complaint narratives into CFPB financial product categories 
+        using a trained **Multinomial Logistic Regression** model operating on unigram + bigram TF-IDF representations.
         """
     )
-    user_complaint = st.text_area(
-        "Enter customer complaint narrative:",
-        height=150,
-        placeholder="Type or paste a complaint narrative here..."
+
+    clf_model, vec_model = load_cached_classifier()
+
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(f"**Model Type:** `{type(clf_model).__name__}`")
+    st.sidebar.markdown(f"**Recognized Classes:** {len(clf_model.classes_)}")
+    st.sidebar.markdown(f"**Vocabulary Features:** {len(vec_model.vocabulary_):,}")
+
+    classify_mode = st.radio(
+        "Select Narrative Input Mode:",
+        ["Choose Benchmark Example", "Enter Custom Complaint Narrative"],
+        horizontal=True
     )
-    if st.button("Categorise Complaint"):
-        if not user_complaint.strip():
+
+    benchmark_narratives = {
+        "Credit Card Billing Issue": "I was charged an unexpected $35 late fee on my credit card statement even though my online payment was scheduled and submitted two business days before the due date.",
+        "Mortgage Servicing Problem": "My mortgage loan servicer failed to pay the county property taxes from my escrow account, resulting in tax penalties and a notice of tax lien on my home.",
+        "Debt Collection Contact": "A collection agency named Allied Recovery has been calling my mobile phone five times a day regarding an alleged medical debt from four years ago that I do not owe.",
+        "Student Loan Payment Allocation": "I submitted an extra principal-only payment of $500 to my federal student loan servicer, but they incorrectly allocated the entire sum to future interest.",
+        "Credit Reporting Dispute": "Equifax is reporting an open delinquent account with a balance of $1,200 that belongs to someone else with a similar name. I filed a dispute with documentation but it was rejected."
+    }
+
+    if classify_mode == "Choose Benchmark Example":
+        chosen_key = st.selectbox("Benchmark Grievance Scenarios:", list(benchmark_narratives.keys()))
+        complaint_input = benchmark_narratives[chosen_key]
+        st.text_area("Selected Complaint Narrative:", value=complaint_input, height=110, disabled=True)
+    else:
+        complaint_input = st.text_area(
+            "Enter customer complaint narrative:",
+            value="I noticed an unauthorized cash withdrawal on my checking account and contacted the bank to dispute the fraudulent transaction.",
+            height=130,
+            placeholder="Type or paste customer complaint text here..."
+        )
+
+    if st.button("Categorise Complaint", type="primary"):
+        if not complaint_input.strip():
             st.warning("Please provide a complaint narrative before proceeding.")
         else:
-            st.info(
-                "Classification model training is scheduled in the upcoming development milestone. "
-                "The trained classifier will categorize complaints here."
+            with st.spinner("Processing text narrative and performing classification..."):
+                pred_category, confidence = predict_complaint_category(
+                    model=clf_model,
+                    vectorizer=vec_model,
+                    narrative=complaint_input,
+                    preprocess=True
+                )
+
+                # Compute full class probability distribution
+                clean_q = preprocess_text(complaint_input)
+                X_q = vec_model.transform([clean_q])
+                probabilities = predict_category_proba(clf_model, X_q)[0]
+
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.success(f"### Predicted Product Category:\n**{pred_category}**")
+            with col2:
+                st.metric("Prediction Confidence", f"{confidence:.2%}")
+
+            # Top 3 predicted class probabilities
+            top3_idx = np.argsort(probabilities)[::-1][:3]
+            df_top3 = pd.DataFrame({
+                "Product Category": [clf_model.classes_[idx] for idx in top3_idx],
+                "Probability": [float(probabilities[idx]) for idx in top3_idx]
+            })
+
+            st.markdown("#### Top Class Probabilities")
+            for _, r in df_top3.iterrows():
+                p_cat = r["Product Category"]
+                p_val = r["Probability"]
+                st.write(f"- **{p_cat}**: `{p_val:.2%}`")
+                st.progress(min(max(p_val, 0.0), 1.0))
+
+            st.caption(
+                "Note: Baseline Multinomial Logistic Regression model trained on CFPB consumer complaints. "
+                "Formal model evaluation metrics (Accuracy, Precision, Recall, Macro/Weighted F1, Confusion Matrix) "
+                "will be generated in the upcoming evaluation milestone."
             )
