@@ -248,3 +248,99 @@ def load_dataset(
             df["complaint_id"] = df[id_col]
 
     return df
+
+
+def load_dataset_from_api(
+    max_records: int = 50,
+    search_term: Optional[str] = None,
+    drop_invalid: bool = False,
+    timeout: float = 25.0
+) -> pd.DataFrame:
+    """Fetch and normalize real complaint data from the official CFPB API.
+
+    Parameters
+    ----------
+    max_records : int, default=50
+        Maximum number of records to retrieve.
+    search_term : Optional[str], optional
+        Search keyword or phrase.
+    drop_invalid : bool, default=False
+        If True, drops records with empty or whitespace-only narratives.
+    timeout : float, default=25.0
+        Network timeout in seconds.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with standardized fields ('text', 'category', 'complaint_id').
+    """
+    from src.cfpb_api import fetch_cfpb_data
+
+    df = fetch_cfpb_data(
+        max_records=max_records,
+        search_term=search_term,
+        drop_empty_narratives=drop_invalid,
+        timeout=timeout
+    )
+
+    if drop_invalid and not df.empty:
+        valid_mask = (
+            df["text"].notnull()
+            & (df["text"].astype(str).str.strip().str.len() > 0)
+            & df["category"].notnull()
+        )
+        df = df[valid_mask].copy().reset_index(drop=True)
+
+    return df
+
+
+def get_complaints_data(
+    source: str = "csv",
+    filepath: str | Path = "data/complaints.csv",
+    max_records: Optional[int] = None,
+    drop_invalid: bool = False,
+    search_term: Optional[str] = None
+) -> pd.DataFrame:
+    """Unified interface to retrieve complaints from either local CSV or live CFPB API.
+
+    Parameters
+    ----------
+    source : str, default='csv'
+        Data source: 'csv' for local file, 'api' for live CFPB API.
+    filepath : str | Path, default='data/complaints.csv'
+        Local CSV path (used when source='csv').
+    max_records : Optional[int], default=None
+        Maximum records to retrieve (used as nrows for CSV or record limit for API).
+    drop_invalid : bool, default=False
+        Whether to filter out records missing text or category.
+    search_term : Optional[str], optional
+        Search term (used when source='api').
+
+    Returns
+    -------
+    pd.DataFrame
+        Normalized complaints DataFrame.
+
+    Raises
+    ------
+    ValueError
+        If source is not 'csv' or 'api'.
+    """
+    normalized_source = str(source).strip().lower()
+    if normalized_source == "csv":
+        return load_dataset(
+            filepath=filepath,
+            nrows=max_records,
+            drop_invalid=drop_invalid,
+            standardize_columns=True
+        )
+    elif normalized_source == "api":
+        limit = max_records if max_records is not None else 50
+        return load_dataset_from_api(
+            max_records=limit,
+            search_term=search_term,
+            drop_invalid=drop_invalid
+        )
+    else:
+        raise ValueError(f"Unknown data source '{source}'. Expected 'csv' or 'api'.")
+

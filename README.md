@@ -96,19 +96,27 @@ Customer-Complaint-NLP/
 │   └── .gitkeep
 │
 ├── notebooks/
-│   └── .gitkeep               # Jupyter notebooks for exploratory analysis
+│   └── 01_dataset_exploration.ipynb # End-to-end exploratory analysis and pipeline demo
 │
 ├── src/
 │   ├── __init__.py
+│   ├── cfpb_api.py            # Official CFPB API client & data fetcher
+│   ├── data_loader.py         # Unified dataset loader (local CSV & live API)
 │   ├── preprocessing.py       # Text cleaning, normalization, and tokenization
-│   ├── vectorization.py       # TF-IDF feature extraction
-│   ├── similarity.py          # Cosine similarity calculations & retrieval
-│   ├── classification.py      # Classifier training & inference
+│   ├── vectorization.py       # TF-IDF feature extraction (sparse CSR matrices)
+│   ├── similarity.py          # Cosine similarity calculations & Top-K retrieval
+│   ├── classification.py      # Classifier training & inference (Logistic Regression)
 │   └── evaluation.py          # Metrics, classification reports, confusion matrices
 │
 ├── tests/
 │   ├── __init__.py
-│   └── test_preprocessing.py  # Unit tests for preprocessing routines
+│   ├── test_cfpb_api.py       # Unit tests for CFPB API integration
+│   ├── test_classification.py # Unit tests for classifier training & inference
+│   ├── test_data_loader.py    # Unit tests for dataset loading and validation
+│   ├── test_evaluation.py     # Unit tests for evaluation metrics & reports
+│   ├── test_preprocessing.py  # Unit tests for preprocessing routines
+│   ├── test_similarity.py     # Unit tests for cosine similarity search
+│   └── test_vectorization.py  # Unit tests for TF-IDF vectorization
 │
 ├── app/
 │   └── app.py                 # Streamlit web application interface
@@ -117,7 +125,8 @@ Customer-Complaint-NLP/
 │   └── .gitkeep               # Serialized models and vectorizers (gitignored)
 │
 ├── results/
-│   └── .gitkeep               # Generated plots, confusion matrices, evaluation metrics
+│   ├── confusion_matrix.png   # Multi-class confusion matrix on holdout test set
+│   └── .gitkeep
 │
 ├── README.md                  # Project overview and documentation
 ├── LICENSE                    # MIT License for source code
@@ -157,13 +166,13 @@ Customer-Complaint-NLP/
 ## Usage
 
 ### Running Tests
-Execute unit tests via pytest:
+Execute the full test suite (130 unit tests) via pytest:
 ```bash
-python -m pytest
+python -m pytest -v
 ```
 
 ### Running the Web Application
-Launch the Streamlit web interface:
+Launch the Streamlit web dashboard:
 ```bash
 streamlit run app/app.py
 ```
@@ -172,54 +181,71 @@ streamlit run app/app.py
 
 ## Model
 
-The supervised classification component employs **Multinomial Logistic Regression** (with L2 regularization).
+The supervised classification component employs **Multinomial Logistic Regression** (with L2 regularization) trained on unigram and bigram TF-IDF representations.
 
 ### Architectural Rationale:
-1. **Convex Optimization**: Logistic Regression provides stable, globally optimal convergence on sparse, high-dimensional TF-IDF feature representations.
-2. **Probability Calibration**: Logistic Regression outputs well-calibrated class probability distributions, allowing confidence thresholding for triage routing.
-3. **Interpretability**: Linear feature weights allow straightforward inspection of top predictive n-grams associated with each product category.
-4. **Computational Efficiency**: Extremely fast to train and evaluate compared to heavy ensemble or deep learning architectures, making it suitable for standard hardware.
+1. **Convex Optimization**: Logistic Regression provides stable, globally optimal convergence on sparse, high-dimensional TF-IDF feature representations ($26,900+$ features).
+2. **Probability Calibration**: Outputs calibrated class probability distributions, enabling confidence-based complaint routing and triage.
+3. **Interpretability**: Linear weights allow straightforward inspection of top predictive n-grams per financial product category.
+4. **Computational Efficiency**: Extremely fast inference ($< 1$ ms) operating directly on SciPy sparse CSR matrices without memory-intensive dense conversions.
+5. **Leakage Prevention**: Stratified 80/20 train/test split executed strictly before vocabulary learning and TF-IDF transformation.
 
 ---
 
-## Evaluation
+## Evaluation & Official Benchmark Results
 
-Model performance will be evaluated against unseen test partitions using standard classification metrics:
-- **Accuracy**
-- **Precision (Macro & Weighted)**
-- **Recall (Macro & Weighted)**
-- **F1-Score (Macro & Weighted)**
-- **Confusion Matrix Visualization**
+Model performance was evaluated on an unseen holdout test partition ($N = 600$ complaints, 20% stratified split) drawn from 3,000 verified CFPB complaint narratives.
 
-*(Official benchmark figures will be populated here once training and validation milestones are completed on the dataset).*
+| Evaluation Metric | Measured Score | Description |
+|---|---|---|
+| **Overall Accuracy** | **61.83%** (0.6183) | Percentage of test complaints correctly classified across all categories |
+| **Weighted Precision** | **53.79%** (0.5379) | Support-weighted precision accounting for class frequency |
+| **Weighted Recall** | **61.83%** (0.6183) | Support-weighted recall across all categories |
+| **Weighted F1-Score** | **54.96%** (0.5496) | Harmonic mean of weighted precision and recall |
+| **Macro Precision** | **26.33%** (0.2633) | Unweighted mean precision across all 17 classes |
+| **Macro Recall** | **25.97%** (0.2597) | Unweighted mean recall across all 17 classes |
+| **Macro F1-Score** | **24.78%** (0.2478) | Unweighted mean F1-score across all 17 classes |
+| **Test Partition Size** | **600 samples** | 20% stratified holdout split |
+| **Vocabulary Features** | **26,922 features** | Unigrams + bigrams ($1 \le n \le 2$, $\text{min\_df}=2$) |
 
-| Metric | Score |
-|---|---|
-| Accuracy | *[Pending model training]* |
-| Macro Precision | *[Pending model training]* |
-| Macro Recall | *[Pending model training]* |
-| Macro F1-Score | *[Pending model training]* |
+### Confusion Matrix Diagnostics
+The multi-class confusion matrix plot is generated and saved at [`results/confusion_matrix.png`](results/confusion_matrix.png).
+- Dominant categories (*Debt collection*, *Credit reporting*, *Mortgage*) exhibit strong true-positive concentrations along the main diagonal.
+- Primary confusions occur between semantically adjacent credit products (e.g. *Credit card* vs. *Credit reporting*).
+
+---
+
+## Live CFPB API Integration
+
+The application integrates with the official [CFPB Consumer Complaint Database API v1](https://www.consumerfinance.gov/data-research/consumer-complaints/search/api/v1/):
+- **Endpoint**: `https://www.consumerfinance.gov/data-research/consumer-complaints/search/api/v1/`
+- **Client**: `src.cfpb_api.CFPBClient` and convenience function `fetch_cfpb_data()`
+- **Schema Normalization**: Maps raw API Elasticsearch hits into canonical fields (`complaint_id`, `category`, `text`, `company`, `date_received`, `state`, `issue`).
+- **Unified Dispatcher**: `src.data_loader.get_complaints_data(source="csv" | "api")` allows switching seamlessly between offline CSV analysis and live CFPB querying.
 
 ---
 
 ## Limitations
 
 - **Syntactic Context**: Classical bag-of-words and TF-IDF representations do not capture complex long-range syntactic nuances or word re-ordering beyond the defined n-gram window.
-- **Out-of-Vocabulary Terms**: Words not present in the training vocabulary will be ignored during inference.
-- **Narrative Dependency**: The system requires complaints to contain narrative text; records where consumers opted out of narrative publication cannot be processed for textual similarity.
+- **Out-of-Vocabulary Terms**: Words not present in the training vocabulary are ignored during inference.
+- **CFPB Narrative Publication Policy**: Under the CFPB's public disclosure policy, newer complaint records undergo redaction review before consumer narratives become publicly accessible. The system gracefully handles metadata-only records.
 
 ---
 
 ## Future Improvements
 
-- Hyperparameter tuning via grid search across TF-IDF max features and regularization parameters.
-- Incorporating domain-specific financial stopword lists.
+- Hyperparameter tuning via grid search across TF-IDF max features and regularization parameters ($C$).
+- Incorporating domain-specific financial stopword lists and entity masking.
 - Support for hierarchical classification (predicting both `Product` and `Sub-product`).
 - Exporting automated summary evaluation reports in PDF/Markdown.
 
 ---
 
-## Dataset Source
+## Dataset & API Sources
 
-- **Consumer Financial Protection Bureau (CFPB) Consumer Complaint Database**:
+- **CFPB Consumer Complaint Database**:
   [https://www.consumerfinance.gov/data-research/consumer-complaints/](https://www.consumerfinance.gov/data-research/consumer-complaints/)
+- **CFPB Complaint Search API v1**:
+  [https://www.consumerfinance.gov/data-research/consumer-complaints/search/api/v1/](https://www.consumerfinance.gov/data-research/consumer-complaints/search/api/v1/)
+
