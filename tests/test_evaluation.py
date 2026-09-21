@@ -46,10 +46,6 @@ def synthetic_eval_data():
     return y_true, y_pred
 
 
-# ======================================================================
-# 1. Scalar Metric Calculation Tests
-# ======================================================================
-
 class TestMetricCalculations:
     """Test suite for individual classification metrics."""
 
@@ -108,10 +104,6 @@ class TestMetricCalculations:
         assert expected_keys.issubset(set(res.keys()))
         assert np.isclose(res["accuracy"], 0.80)
 
-
-# ======================================================================
-# 2. Diagnostic Reports and Matrices Tests
-# ======================================================================
 
 class TestReportsAndMatrices:
     """Test suite for classification report, confusion matrix, and plots."""
@@ -181,10 +173,6 @@ class TestReportsAndMatrices:
             assert save_img.exists()
             assert save_img.stat().st_size > 0
 
-
-# ======================================================================
-# 3. Input Validation Tests
-# ======================================================================
 
 class TestEvaluationInputValidation:
     """Test suite for error handling on invalid or mismatched inputs."""

@@ -298,21 +298,23 @@ if section == "System Architecture":
     with col3:
         st.markdown("### 📈 Measured Performance Gain")
         st.write(
-            "Class-balanced optimization elevated **Macro F1 from 24.78% to 50.56%** (+25.78% absolute gain) "
-            "and **Accuracy from 61.83% to 69.56%** on unseen test data."
+            "Class-balanced optimization elevated **Macro F1 from 34.15% to 50.56%** (+16.41 pp gain) "
+            "and **Accuracy to 69.56%** on the controlled 5,000-record holdout test set."
         )
 
     st.markdown("---")
-    st.markdown("### Systematic Improvement Milestones")
+    st.markdown("### Systematic Engineering & Research Milestones")
     milestones = [
-        ("1. Repository Foundation & Environment", "Complete", "6b161cf"),
-        ("2. CFPB Dataset Acquisition & Loading", "Complete", "24752a0"),
+        ("1. Repository Foundation & Scaffolding", "Complete", "6b161cf"),
+        ("2. CFPB Dataset Loading & Validation", "Complete", "24752a0"),
         ("3. Classical Text Preprocessing Pipeline", "Complete", "e964ec0"),
         ("4. TF-IDF Vectorisation (Unigrams + Bigrams)", "Complete", "364ebc4"),
         ("5. Cosine Similarity Complaint Search", "Complete", "99bd215"),
-        ("6. Initial Baseline Logistic Regression", "Complete", "563065e"),
+        ("6. Supervised Classification Baseline", "Complete", "164f722"),
         ("7. Model Evaluation & Live CFPB API Integration", "Complete", "6f6bfc4"),
-        ("8. Systematic Classical Model Improvement", "Complete", "Current"),
+        ("8. Systematic Classical Model Improvement", "Complete", "4ef78fe"),
+        ("9. Classification Error Analysis", "Complete", "4cf8afa"),
+        ("10. Taxonomy-Aware Classification Analysis", "Complete", "0d49099"),
     ]
     st.table(pd.DataFrame(milestones, columns=["Milestone", "Status", "Git Commit"]))
 

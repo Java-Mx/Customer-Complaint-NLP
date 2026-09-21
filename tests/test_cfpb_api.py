@@ -33,10 +33,6 @@ def sample_api_raw_hit():
     }
 
 
-# ======================================================================
-# 1. CFPB Client Configuration Tests
-# ======================================================================
-
 class TestCFPBClientConfiguration:
     """Test suite for client setup and parameters."""
 
@@ -54,10 +50,6 @@ class TestCFPBClientConfiguration:
         assert client.base_url == "https://example.com/api/"
         assert client.timeout == 10.0
 
-
-# ======================================================================
-# 2. Response Normalization Tests
-# ======================================================================
 
 class TestCFPBResponseNormalization:
     """Test suite for mapping raw CFPB hits into canonical project schema."""
@@ -90,10 +82,6 @@ class TestCFPBResponseNormalization:
         assert normalized["category"] == "Mortgage"
         assert normalized["text"] == ""
 
-
-# ======================================================================
-# 3. Fetch Complaints and Pagination Tests
-# ======================================================================
 
 class TestFetchComplaintsPagination:
     """Test suite for multi-page retrieval and filtering."""
@@ -154,10 +142,6 @@ class TestFetchComplaintsPagination:
         with pytest.raises(ValueError, match="positive integer"):
             client.fetch_complaints(max_records=0)
 
-
-# ======================================================================
-# 4. Error Handling Tests
-# ======================================================================
 
 class TestCFPBErrorHandling:
     """Test suite for HTTP error handling, timeouts, and network failures."""

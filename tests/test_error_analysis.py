@@ -31,9 +31,7 @@ RESULTS_DIR = ROOT_DIR / "results"
 MODELS_DIR = ROOT_DIR / "models"
 
 
-# ---------------------------------------------------------------------------
 # Fixtures
-# ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="module")
 def df_full():
@@ -94,10 +92,6 @@ def error_analysis_json():
         return json.load(f)
 
 
-# ---------------------------------------------------------------------------
-# Test Group 1: Test set integrity
-# ---------------------------------------------------------------------------
-
 class TestTestSetIntegrity:
     def test_test_set_size_is_5000(self, test_split):
         """Test set must contain exactly 5,000 records."""
@@ -123,10 +117,6 @@ class TestTestSetIntegrity:
         empties = X_test[X_test.str.strip().str.len() == 0]
         assert len(empties) == 0, f"Found {len(empties)} empty complaint texts."
 
-
-# ---------------------------------------------------------------------------
-# Test Group 2: Confusion matrix
-# ---------------------------------------------------------------------------
 
 class TestConfusionMatrix:
     def test_confusion_matrix_shape_18x18(self, test_predictions):
@@ -157,10 +147,6 @@ class TestConfusionMatrix:
         cm = confusion_matrix(np.asarray(y_test), y_pred, labels=classes)
         assert cm.sum() == 5000
 
-
-# ---------------------------------------------------------------------------
-# Test Group 3: Per-category metrics
-# ---------------------------------------------------------------------------
 
 class TestPerCategoryMetrics:
     def test_per_category_csv_exists(self):
@@ -204,10 +190,6 @@ class TestPerCategoryMetrics:
         assert df["support"].sum() == 5000, f"Support sum {df['support'].sum()} != 5000"
 
 
-# ---------------------------------------------------------------------------
-# Test Group 4: Confusion pair output
-# ---------------------------------------------------------------------------
-
 class TestConfusionPairs:
     def test_error_analysis_csv_exists(self):
         """error_analysis.csv must be generated."""
@@ -249,10 +231,6 @@ class TestConfusionPairs:
         assert (df["pct_of_actual"] > 0).all() and (df["pct_of_actual"] <= 100).all()
 
 
-# ---------------------------------------------------------------------------
-# Test Group 5: Confidence bands
-# ---------------------------------------------------------------------------
-
 class TestConfidenceBands:
     def test_predict_proba_available(self, loaded_models):
         """Improved model must support predict_proba."""
@@ -284,10 +262,6 @@ class TestConfidenceBands:
         row_sums = proba.sum(axis=1)
         np.testing.assert_allclose(row_sums, 1.0, atol=1e-5)
 
-
-# ---------------------------------------------------------------------------
-# Test Group 6: Baseline comparison
-# ---------------------------------------------------------------------------
 
 class TestBaselineComparison:
     def test_baseline_vs_improved_csv_exists(self):
@@ -350,10 +324,6 @@ class TestBaselineComparison:
         i = float(row["improved_combined_tfidf_balanced"].iloc[0])
         assert i > b
 
-
-# ---------------------------------------------------------------------------
-# Test Group 7: JSON output integrity
-# ---------------------------------------------------------------------------
 
 class TestErrorAnalysisJSON:
     def test_json_exists(self, error_analysis_json):

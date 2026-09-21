@@ -60,10 +60,7 @@ from src.vectorization import (
 from src.classification import train_test_split_data, predict_categories
 
 
-# ---------------------------------------------------------------------------
 # Constants
-# ---------------------------------------------------------------------------
-
 CONFIDENCE_HIGH = 0.70
 CONFIDENCE_MED = 0.40
 
@@ -73,10 +70,7 @@ MODELS_DIR = ROOT_DIR / "models"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
-
 def _confidence_band(prob: float) -> str:
     if prob >= CONFIDENCE_HIGH:
         return "high"
@@ -114,10 +108,7 @@ def _prob_stats(probs: np.ndarray) -> dict:
     }
 
 
-# ---------------------------------------------------------------------------
 # Phase 0 — Controlled Baseline Benchmark
-# ---------------------------------------------------------------------------
-
 def run_phase0_baseline(df: pd.DataFrame, X_test, y_test):
     """Fit the original baseline model on the exact same 20k training pool.
 
@@ -159,10 +150,7 @@ def run_phase0_baseline(df: pd.DataFrame, X_test, y_test):
     return baseline_metrics, y_pred_baseline
 
 
-# ---------------------------------------------------------------------------
 # Phase 1 — Full Error Analysis
-# ---------------------------------------------------------------------------
-
 def run_phase1_error_analysis(
     clf, X_test_vec, y_test, X_test_raw, n_error_examples: int = 5
 ) -> dict:
@@ -269,10 +257,7 @@ def run_phase1_error_analysis(
     }
 
 
-# ---------------------------------------------------------------------------
 # Phase 2 — Confidence / Probability Analysis
-# ---------------------------------------------------------------------------
-
 def run_phase2_confidence(clf, X_test_vec, y_true, y_pred) -> dict:
     """Analyze prediction probabilities from LogisticRegression.predict_proba()."""
 
@@ -328,10 +313,7 @@ def run_phase2_confidence(clf, X_test_vec, y_true, y_pred) -> dict:
     }
 
 
-# ---------------------------------------------------------------------------
 # Phase 3 — Class Distribution
-# ---------------------------------------------------------------------------
-
 def run_phase3_class_distribution(df: pd.DataFrame, y_test, per_cat_df: pd.DataFrame) -> dict:
     """Compile full class distribution across overall / train / val / test splits."""
 
@@ -392,10 +374,7 @@ def run_phase3_class_distribution(df: pd.DataFrame, y_test, per_cat_df: pd.DataF
     }
 
 
-# ---------------------------------------------------------------------------
 # Phase 4 — Lexical Overlap Analysis
-# ---------------------------------------------------------------------------
-
 def run_phase4_lexical_overlap(
     w_vec,
     top_pairs: list[dict],
@@ -461,10 +440,7 @@ def run_phase4_lexical_overlap(
     return results
 
 
-# ---------------------------------------------------------------------------
 # Main Pipeline
-# ---------------------------------------------------------------------------
-
 def main():
     print("=" * 76)
     print("   CFPB COMPLAINT CLASSIFICATION — COMPREHENSIVE ERROR ANALYSIS")

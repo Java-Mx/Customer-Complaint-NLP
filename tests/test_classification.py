@@ -67,10 +67,6 @@ def sample_text_corpus():
     return df
 
 
-# ======================================================================
-# 1. Classifier Creation Tests
-# ======================================================================
-
 class TestClassifierCreation:
     """Test suite for classifier instantiation and configuration."""
 
@@ -101,10 +97,6 @@ class TestClassifierCreation:
         with pytest.raises(ValueError, match="positive integer"):
             create_classifier(max_iter=-100)
 
-
-# ======================================================================
-# 2. Classifier Fitting Tests
-# ======================================================================
 
 class TestClassifierFitting:
     """Test suite for training classifier on sparse matrices."""
@@ -168,10 +160,6 @@ class TestClassifierFitting:
         with pytest.raises(TypeError):
             fit_classifier(clf, X, None)
 
-
-# ======================================================================
-# 3. Inference and Prediction Tests
-# ======================================================================
 
 class TestInferenceAndPrediction:
     """Test suite for predictions, shapes, labels, and probability distributions."""
@@ -286,10 +274,6 @@ class TestSingleComplaintPipeline:
         with pytest.raises(TypeError):
             predict_complaint_category(clf, fitted_vec, None)
 
-
-# ======================================================================
-# 5. Data Splitting and Model Persistence Tests
-# ======================================================================
 
 class TestDataSplittingAndPersistence:
     """Test suite for train/test partition and model serialization."""

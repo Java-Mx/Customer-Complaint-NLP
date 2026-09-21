@@ -45,10 +45,6 @@ def sample_vectorizer_and_matrix(sample_corpus_data):
     return vec, matrix
 
 
-# ======================================================================
-# 1. Cosine Similarity Matrix Tests
-# ======================================================================
-
 class TestCosineSimilarityMatrix:
     """Test suite for pairwise cosine similarity matrix computations."""
 
@@ -112,10 +108,6 @@ class TestCosineSimilarityMatrix:
             cosine_similarity_matrix(None)
 
 
-# ======================================================================
-# 2. Query to Corpus Cosine Similarity Tests
-# ======================================================================
-
 class TestComputeCosineSimilarity:
     """Test suite for single-query to corpus similarity matching."""
 
@@ -175,10 +167,6 @@ class TestComputeCosineSimilarity:
         with pytest.raises(TypeError):
             compute_cosine_similarity(valid_vec, None)
 
-
-# ======================================================================
-# 3. Top-K Retrieval and Ranking Tests
-# ======================================================================
 
 class TestTopKRetrieval:
     """Test suite for top-k ranking, ordering, and boundary handling."""
@@ -243,10 +231,6 @@ class TestTopKRetrieval:
         assert indices[0] == 1
         assert scores[0] >= scores[1]
 
-
-# ======================================================================
-# 4. End-to-End Complaint Search Tests
-# ======================================================================
 
 class TestFindSimilarComplaints:
     """Test suite for full end-to-end complaint similarity retrieval."""

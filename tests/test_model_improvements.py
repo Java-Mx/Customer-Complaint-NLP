@@ -31,10 +31,6 @@ from src.classification import (
 )
 
 
-# ======================================================================
-# 1. Character and Combined Vectorization Tests
-# ======================================================================
-
 class TestCharacterAndCombinedVectorization:
     """Tests for character-level and stacked sparse TF-IDF vectorization."""
 
@@ -102,10 +98,6 @@ class TestCharacterAndCombinedVectorization:
         assert issparse(X_test)
         assert X_test.shape == (2, expected_cols)
 
-
-# ======================================================================
-# 2. LinearSVC and Class-Weight Classifier Tests
-# ======================================================================
 
 class TestClassifierImprovements:
     """Tests for LinearSVC, class weighting, and confidence extraction."""
