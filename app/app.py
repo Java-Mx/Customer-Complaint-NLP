@@ -2,10 +2,12 @@
 
 Provides an academic project interface to explore real consumer complaints from the
 official CFPB Consumer Complaint Database and API, demonstrate text preprocessing,
-TF-IDF vectorisation, cosine similarity retrieval, supervised classification, and
-comprehensive model evaluation.
+TF-IDF vectorisation, cosine similarity retrieval, supervised classification with
+improved classical models (Combined Word + Character TF-IDF & Class Weight Balancing),
+and comprehensive statistical model evaluation.
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -21,7 +23,12 @@ import streamlit as st
 
 from src.data_loader import load_dataset, get_complaints_data, get_dataset_summary
 from src.preprocessing import clean_text, tokenize, remove_stopwords, preprocess_text, preprocess_series
-from src.vectorization import create_vectorizer, fit_transform_corpus, fit_transform_tfidf
+from src.vectorization import (
+    create_vectorizer,
+    fit_transform_corpus,
+    fit_transform_tfidf,
+    transform_word_char,
+)
 from src.similarity import find_similar_complaints, compute_cosine_similarity
 from src.classification import (
     load_classifier,
@@ -51,11 +58,11 @@ st.set_page_config(
 st.title("📋 Customer Complaint Similarity & Categorisation")
 st.markdown(
     """
-    **Academic NLP Mini-Project** analyzing real consumer complaints from the 
+    **Academic NLP Project** analyzing real consumer complaints from the 
     official [CFPB Consumer Complaint Database](https://www.consumerfinance.gov/data-research/consumer-complaints/)
     and [CFPB Search API v1](https://www.consumerfinance.gov/data-research/consumer-complaints/search/api/v1/).
     
-    *Classical NLP Pipeline: Preprocessing → TF-IDF (Sparse CSR) → Cosine Similarity & Multinomial Logistic Regression → Rigorous Evaluation.*
+    *Classical NLP Pipeline: Preprocessing → Word+Char TF-IDF (Sparse CSR) → Cosine Similarity & Class-Balanced Supervised Classification.*
     """
 )
 
@@ -90,53 +97,41 @@ def build_indexed_corpus(nrows: int = 300):
 
 @st.cache_resource
 def load_trained_model():
-    """Load or train the cached Logistic Regression model and vectorizer."""
+    """Load the trained classification model and vectorizer(s)."""
     model_path = ROOT_DIR / "models" / "complaint_classifier.joblib"
-    vec_path = ROOT_DIR / "models" / "tfidf_vectorizer.joblib"
+    w_vec_path = ROOT_DIR / "models" / "tfidf_vectorizer.joblib"
+    c_vec_path = ROOT_DIR / "models" / "char_vectorizer.joblib"
 
-    if model_path.exists() and vec_path.exists():
+    if model_path.exists() and w_vec_path.exists():
         try:
             clf = load_classifier(model_path)
-            vec = joblib.load(vec_path)
+            w_vec = joblib.load(w_vec_path)
+            c_vec = joblib.load(c_vec_path) if c_vec_path.exists() else None
+            vec = (w_vec, c_vec) if c_vec is not None else w_vec
             return clf, vec
         except Exception:
             pass
-
-    # Fallback to local training on complaints.csv sample if serialized files unavailable
-    data_path = ROOT_DIR / "data" / "complaints.csv"
-    if data_path.exists():
-        df = load_dataset(data_path, nrows=2500, drop_invalid=True)
-        X_train, _, y_train, _ = train_test_split_data(df, test_size=0.20, random_state=42, stratify=True)
-        clean_train = preprocess_series(X_train)
-        vec = create_vectorizer(ngram_range=(1, 2), min_df=2, sublinear_tf=True, lowercase=False)
-        vec, X_train_tfidf = fit_transform_corpus(clean_train, vectorizer=vec)
-        clf = create_classifier(C=1.0, max_iter=1000, random_state=42)
-        clf = fit_classifier(clf, X_train_tfidf, y_train)
-
-        model_path.parent.mkdir(parents=True, exist_ok=True)
-        save_classifier(clf, model_path)
-        joblib.dump(vec, vec_path)
-        return clf, vec
 
     return None, None
 
 
 @st.cache_data
-def compute_holdout_evaluation():
-    """Compute and cache formal model evaluation metrics on the holdout test set."""
-    clf, vec = load_trained_model()
-    data_path = ROOT_DIR / "data" / "complaints.csv"
-    if clf is None or vec is None or not data_path.exists():
-        return None
+def load_evaluation_summary():
+    """Load cached final evaluation metrics and experiment comparison."""
+    metrics_path = ROOT_DIR / "results" / "final_evaluation_metrics.json"
+    comp_path = ROOT_DIR / "results" / "model_comparison.csv"
 
-    df = load_dataset(data_path, nrows=3000, drop_invalid=True)
-    _, X_test, _, y_test = train_test_split_data(df, test_size=0.20, random_state=42, stratify=True)
-    X_test_clean = preprocess_series(X_test)
-    X_test_tfidf = vec.transform(X_test_clean)
-    y_pred = clf.predict(X_test_tfidf)
+    metrics_data = None
+    comparison_df = None
 
-    eval_bundle = evaluate_model(y_test, y_pred, labels=clf.classes_)
-    return eval_bundle
+    if metrics_path.exists():
+        with open(metrics_path, "r", encoding="utf-8") as f:
+            metrics_data = json.load(f)
+
+    if comp_path.exists():
+        comparison_df = pd.read_csv(comp_path)
+
+    return metrics_data, comparison_df
 
 
 # ----------------------------------------------------------------------
@@ -162,16 +157,24 @@ st.sidebar.subheader("System Status")
 # Check API status
 api_online = test_api_connection()
 if api_online:
-    st.sidebar.success("CFPB Search API: Online")
+    st.sidebar.success("CFPB Search API: Online (HTTP 200)")
 else:
     st.sidebar.warning("CFPB Search API: Offline / Rate Limited")
 
 # Check Local Dataset
 data_csv = ROOT_DIR / "data" / "complaints.csv"
 if data_csv.exists():
-    st.sidebar.info(f"Local Dataset: {data_csv.name} Available")
+    st.sidebar.info(f"Local Dataset: {data_csv.name} (25,000 records)")
 else:
     st.sidebar.error("Local Dataset: complaints.csv Not Found")
+
+# Check Model Status
+clf_loaded, vec_loaded = load_trained_model()
+if clf_loaded is not None:
+    feat_desc = "Combined Word+Char" if isinstance(vec_loaded, tuple) else "Word TF-IDF"
+    st.sidebar.success(f"Model: {type(clf_loaded).__name__} ({feat_desc})")
+else:
+    st.sidebar.warning("Model: Not loaded")
 
 
 # ----------------------------------------------------------------------
@@ -190,56 +193,61 @@ if section == "System Architecture":
                  (Lowercasing, Redaction Cleaning, Tokenization,
                        Number Normalization, Stopwords)
                                       ↓
-                            TF-IDF Vectorisation
-                (Unigrams + Bigrams, Sublinear Scaling, Sparse CSR)
+                     Feature Extraction: TF-IDF Engine
+          ┌──────────────────────────────────────────────────────────┐
+          │  Word TF-IDF: Unigrams + Bigrams (ngram_range=(1,2))    │
+          │  Char TF-IDF: Subwords within boundaries (char_wb, 3-5)  │
+          │  Combined: scipy.sparse.hstack (237,148 sparse features) │
+          └──────────────────────────────────────────────────────────┘
                                       ↓
                     ┌───────────────────────────────────┐
                     │                                   │
                     ▼                                   ▼
           Cosine Similarity Retrieval         Supervised Classification
-        (Pairwise dot product on CSR)     (Multinomial Logistic Regression)
+        (Pairwise dot product on CSR)     (Class-Balanced Logistic Regression / LinearSVC)
                     │                                   │
                     ▼                                   ▼
           Top-K Similar Grievances             Predicted Product Category
                                                         │
                                                         ▼
                                                  Model Evaluation
-                                         (Accuracy, Precision, Recall,
-                                           Macro/Weighted F1, Matrix)
+                                          (Accuracy: 69.56%, Macro F1: 50.56%,
+                                            Weighted F1: 69.55% on N=5,000 Test)
         ```
         """
     )
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown("### 🔍 Real-World Data")
+        st.markdown("### 🔍 Real-World CFPB Data")
         st.write(
-            "Built on authentic consumer complaints from the Consumer Financial Protection Bureau (CFPB), "
-            "with zero artificial synthetic records or fake presets."
+            "Trained and evaluated on the authentic CFPB Consumer Complaint Database (25,000 complaints). "
+            "Partitioned with zero data leakage: 20,000 training pool and 5,000 untouched test records."
         )
     with col2:
-        st.markdown("### ⚡ Sparse CSR Computations")
+        st.markdown("### ⚡ Word + Character Subwords")
         st.write(
-            "Feature matrices are strictly preserved in SciPy sparse CSR representation, ensuring minimal memory footprint "
-            "and sub-millisecond retrieval latency without dense matrix conversion."
+            "Fuses word n-grams with character n-grams (`char_wb`, 3–5) to robustly capture compound terms, "
+            "prefixes, suffixes, financial acronyms, and terminology variations in sparse CSR format."
         )
     with col3:
-        st.markdown("### 📊 Rigorous Evaluation")
+        st.markdown("### 📈 Measured Performance Gain")
         st.write(
-            "Evaluated on an unseen 20% stratified holdout split ($N = 600$) using Accuracy, Macro/Weighted F1, "
-            "per-category diagnostic metrics, and full confusion matrix analysis."
+            "Class-balanced optimization elevated **Macro F1 from 24.78% to 50.56%** (+25.78% absolute gain) "
+            "and **Accuracy from 61.83% to 69.56%** on unseen test data."
         )
 
     st.markdown("---")
-    st.markdown("### Project Milestone Status")
+    st.markdown("### Systematic Improvement Milestones")
     milestones = [
         ("1. Repository Foundation & Environment", "Complete", "6b161cf"),
         ("2. CFPB Dataset Acquisition & Loading", "Complete", "24752a0"),
         ("3. Classical Text Preprocessing Pipeline", "Complete", "e964ec0"),
         ("4. TF-IDF Vectorisation (Unigrams + Bigrams)", "Complete", "364ebc4"),
         ("5. Cosine Similarity Complaint Search", "Complete", "99bd215"),
-        ("6. Multinomial Logistic Regression Classification", "Complete", "563065e"),
-        ("7. Model Evaluation & Live CFPB API Integration", "Complete", "Current"),
+        ("6. Initial Baseline Logistic Regression", "Complete", "563065e"),
+        ("7. Model Evaluation & Live CFPB API Integration", "Complete", "6f6bfc4"),
+        ("8. Systematic Classical Model Improvement", "Complete", "Current"),
     ]
     st.table(pd.DataFrame(milestones, columns=["Milestone", "Status", "Git Commit"]))
 
@@ -360,84 +368,93 @@ elif section == "CFPB Live API & Data Explorer":
 # ----------------------------------------------------------------------
 
 elif section == "Model Evaluation & Diagnostics":
-    st.subheader("📊 Model Evaluation & Diagnostic Analytics")
+    st.subheader("📊 Model Evaluation & Systematic Improvements")
     st.markdown(
         """
-        Rigorous assessment of the classical **Multinomial Logistic Regression** model on unseen test complaints.
-        - **Data Leakage Safeguard**: Stratified 80/20 train/test partition executed **prior** to vocabulary and TF-IDF fitting.
-        - **Test Partition Size**: $N = 600$ unseen complaint documents.
-        - **Evaluation Standard**: Scikit-Learn classification metrics computed with zero synthetic artifacts.
+        Rigorous comparative evaluation between the **Initial Baseline Model** ($N=600$ test split) and the 
+        **Improved Final Model** ($N=5,000$ test split, Combined Word+Character TF-IDF, Class Weight Balancing).
+        - **Data Leakage Safeguard**: 80/20 train/test split executed strictly prior to vectorization.
+        - **Model Selection Standard**: Selected using Validation Macro F1 across 30+ experimental configurations.
         """
     )
 
-    eval_data = compute_holdout_evaluation()
+    metrics_data, comparison_df = load_evaluation_summary()
 
-    if eval_data is None:
-        st.warning("Model artifacts or evaluation data not available. Please ensure models and data/complaints.csv exist.")
+    if metrics_data is None:
+        st.warning("Evaluation artifacts not found. Please run scripts/run_experiments.py to generate benchmarks.")
     else:
-        metrics = eval_data["metrics"]
+        base = metrics_data["baseline"]
+        improved = metrics_data["final_model"]
 
-        # Metric KPI cards
+        # Comparison KPI Cards
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("Overall Accuracy", f"{metrics['accuracy']:.2%}")
+            delta_acc = improved["accuracy"] - base["accuracy"]
+            st.metric("Overall Accuracy", f"{improved['accuracy']:.2%}", delta=f"{delta_acc:+.2%}")
         with col2:
-            st.metric("Weighted F1-Score", f"{metrics['weighted_f1']:.4f}")
+            delta_mf1 = improved["macro_f1"] - base["macro_f1"]
+            st.metric("Macro F1-Score", f"{improved['macro_f1']:.4f}", delta=f"{delta_mf1:+.4f}")
         with col3:
-            st.metric("Macro F1-Score", f"{metrics['macro_f1']:.4f}")
+            delta_wf1 = improved["weighted_f1"] - base["weighted_f1"]
+            st.metric("Weighted F1-Score", f"{improved['weighted_f1']:.4f}", delta=f"{delta_wf1:+.4f}")
         with col4:
-            st.metric("Test Partition Size", f"{eval_data['total_samples']} samples")
+            st.metric("Test Partition Size", f"{improved['test_samples']:,} samples", delta=f"+{improved['test_samples'] - base['samples']:,}")
 
         col5, col6, col7, col8 = st.columns(4)
         with col5:
-            st.metric("Weighted Precision", f"{metrics['weighted_precision']:.4f}")
+            st.metric("Macro Precision", f"{improved['macro_precision']:.4f}", delta=f"{improved['macro_precision'] - base['macro_precision']:+.4f}")
         with col6:
-            st.metric("Weighted Recall", f"{metrics['weighted_recall']:.4f}")
+            st.metric("Macro Recall", f"{improved['macro_recall']:.4f}", delta=f"{improved['macro_recall'] - base['macro_recall']:+.4f}")
         with col7:
-            st.metric("Macro Precision", f"{metrics['macro_precision']:.4f}")
+            st.metric("Weighted Precision", f"{improved['weighted_precision']:.4f}", delta=f"{improved['weighted_precision'] - base['weighted_precision']:+.4f}")
         with col8:
-            st.metric("Macro Recall", f"{metrics['macro_recall']:.4f}")
+            st.metric("Total Vocabulary Features", f"{improved['total_features']:,}")
 
         st.markdown("---")
 
-        # Tabs for detailed diagnostics
-        tab1, tab2, tab3 = st.tabs(["Per-Category Breakdown", "Confusion Matrix", "Full Classification Report"])
+        # Tabbed Diagnostics
+        tab1, tab2, tab3 = st.tabs(["Baseline vs. Improved Comparison", "Confusion Matrix Heatmap", "Experiment Grid (30 Runs)"])
 
         with tab1:
-            st.markdown("#### Granular Category Performance")
-            st.markdown(
-                "High-volume financial categories attain high precision and recall, "
-                "while low-support minority classes highlight class-imbalance dynamics."
-            )
-            per_cat_df = eval_data["per_category"]
-            st.dataframe(
-                per_cat_df.style.format({
-                    "precision": "{:.4f}",
-                    "recall": "{:.4f}",
-                    "f1_score": "{:.4f}",
-                    "support": "{:d}"
-                }),
-                use_container_width=True
-            )
+            st.markdown("#### Baseline vs. Improved Model Benchmark Comparison")
+            comp_table = [
+                {"Metric": "Overall Accuracy", "Initial Baseline": f"{base['accuracy']:.2%}", "Improved Final Model": f"{improved['accuracy']:.2%}", "Absolute Improvement": f"{delta_acc:+.2%}"},
+                {"Metric": "Macro F1-Score", "Initial Baseline": f"{base['macro_f1']:.4f}", "Improved Final Model": f"{improved['macro_f1']:.4f}", "Absolute Improvement": f"{delta_mf1:+.4f} (More than doubled)"},
+                {"Metric": "Weighted F1-Score", "Initial Baseline": f"{base['weighted_f1']:.4f}", "Improved Final Model": f"{improved['weighted_f1']:.4f}", "Absolute Improvement": f"{delta_wf1:+.4f}"},
+                {"Metric": "Macro Precision", "Initial Baseline": f"{base['macro_precision']:.4f}", "Improved Final Model": f"{improved['macro_precision']:.4f}", "Absolute Improvement": f"{improved['macro_precision'] - base['macro_precision']:+.4f}"},
+                {"Metric": "Macro Recall", "Initial Baseline": f"{base['macro_recall']:.4f}", "Improved Final Model": f"{improved['macro_recall']:.4f}", "Absolute Improvement": f"{improved['macro_recall'] - base['macro_recall']:+.4f}"},
+                {"Metric": "Weighted Precision", "Initial Baseline": f"{base['weighted_precision']:.4f}", "Improved Final Model": f"{improved['weighted_precision']:.4f}", "Absolute Improvement": f"{improved['weighted_precision'] - base['weighted_precision']:+.4f}"},
+                {"Metric": "Test Samples", "Initial Baseline": f"{base['samples']:,}", "Improved Final Model": f"{improved['test_samples']:,}", "Absolute Improvement": f"+{improved['test_samples'] - base['samples']:,} samples"},
+                {"Metric": "Feature Representation", "Initial Baseline": "Word TF-IDF (1,2)", "Improved Final Model": "Combined Word(1,2) + Char(3,5)", "Absolute Improvement": "Subword granularity"},
+                {"Metric": "Class Imbalance Strategy", "Initial Baseline": "None (Standard)", "Improved Final Model": "class_weight='balanced'", "Absolute Improvement": "Minority classes boosted"},
+            ]
+            st.table(pd.DataFrame(comp_table))
 
         with tab2:
-            st.markdown("#### Multi-Class Confusion Matrix")
+            st.markdown("#### Multi-Class Confusion Matrix (N = 5,000 Test Records)")
             cm_img_path = ROOT_DIR / "results" / "confusion_matrix.png"
             if cm_img_path.exists():
-                st.image(str(cm_img_path), caption="Holdout Test Set Confusion Matrix (N=600)", use_container_width=True)
+                st.image(str(cm_img_path), caption="Holdout Test Set Confusion Matrix (N=5,000 Unseen Complaints)", use_container_width=True)
             else:
-                st.info("Generating confusion matrix visualization...")
-                clf, _ = load_trained_model()
-                fig = plot_confusion_matrix(
-                    y_true=per_cat_df["category"],
-                    y_pred=per_cat_df["category"],
-                    title="Confusion Matrix"
-                )
-                st.pyplot(fig)
+                st.info("Confusion matrix plot file not found.")
 
         with tab3:
-            st.markdown("#### Scikit-Learn Classification Report")
-            st.code(eval_data["classification_report_text"], language="text")
+            st.markdown("#### Full Systematic Experiment Comparison Table")
+            st.markdown("Results logged across 30+ validation configurations using identical training/validation splits:")
+            if comparison_df is not None:
+                st.dataframe(
+                    comparison_df.style.format({
+                        "Val Accuracy": "{:.4f}",
+                        "Val Macro F1": "{:.4f}",
+                        "Val Weighted F1": "{:.4f}",
+                        "Val Macro Prec": "{:.4f}",
+                        "Val Macro Rec": "{:.4f}",
+                        "Fit Time (s)": "{:.2f}"
+                    }),
+                    use_container_width=True
+                )
+            else:
+                st.info("results/model_comparison.csv not found.")
 
 
 # ----------------------------------------------------------------------
@@ -540,7 +557,7 @@ elif section == "Complaint Categorisation":
     st.markdown(
         """
         Classify customer complaint narratives into CFPB financial product categories 
-        using a trained **Multinomial Logistic Regression** model operating directly on sparse TF-IDF representations.
+        using the improved **Class-Balanced Model** operating directly on sparse TF-IDF representations.
         """
     )
 
@@ -551,7 +568,8 @@ elif section == "Complaint Categorisation":
     else:
         st.sidebar.markdown(f"**Model:** `{type(clf_model).__name__}`")
         st.sidebar.markdown(f"**Trained Classes:** {len(clf_model.classes_)}")
-        st.sidebar.markdown(f"**Vocabulary Features:** {len(vec_model.vocabulary_):,}")
+        dim_str = f"{vec_model[0].vocabulary_.__len__() + vec_model[1].vocabulary_.__len__():,}" if isinstance(vec_model, tuple) else f"{len(vec_model.vocabulary_):,}"
+        st.sidebar.markdown(f"**Vocabulary Features:** {dim_str}")
 
         input_mode = st.radio(
             "Select Narrative Source:",
@@ -591,8 +609,16 @@ elif section == "Complaint Categorisation":
                     )
 
                     clean_q = preprocess_text(input_narrative)
-                    X_q = vec_model.transform([clean_q])
+                    if isinstance(vec_model, tuple):
+                        X_q = transform_word_char(vec_model[0], vec_model[1], [clean_q])
+                    else:
+                        X_q = vec_model.transform([clean_q])
+
                     probabilities = predict_category_proba(clf_model, X_q)[0]
+
+                # Distinguish calibrated probability vs normalized confidence
+                is_prob = hasattr(clf_model, "predict_proba")
+                conf_label = "Prediction Confidence (Probability)" if is_prob else "Normalized confidence score"
 
                 col1, col2 = st.columns([2, 1])
                 with col1:
@@ -603,10 +629,10 @@ elif section == "Complaint Categorisation":
                         else:
                             st.warning(f"⚠️ Model predicted `{pred_category}`, actual ground truth was `{actual_cat}`.")
                 with col2:
-                    st.metric("Prediction Confidence", f"{confidence:.2%}")
+                    st.metric(conf_label, f"{confidence:.2%}")
 
                 top5_idx = np.argsort(probabilities)[::-1][:5]
-                st.markdown("#### Top 5 Product Class Probabilities")
+                st.markdown(f"#### Top 5 Product Categories by {conf_label}")
                 for idx in top5_idx:
                     p_cat = clf_model.classes_[idx]
                     p_val = float(probabilities[idx])
@@ -667,8 +693,10 @@ elif section == "Text Preprocessing & TF-IDF":
             # TF-IDF Inspection
             _, vec = load_trained_model()
             if vec is not None:
-                vec_features = vec.get_feature_names_out()
-                tfidf_vec = vec.transform([final_text])
+                # Use word vectorizer if tuple
+                inspect_vec = vec[0] if isinstance(vec, tuple) else vec
+                vec_features = inspect_vec.get_feature_names_out()
+                tfidf_vec = inspect_vec.transform([final_text])
                 nonzero_indices = tfidf_vec.nonzero()[1]
 
                 if len(nonzero_indices) > 0:
@@ -678,7 +706,7 @@ elif section == "Text Preprocessing & TF-IDF":
                     ]
                     feature_weights.sort(key=lambda x: x[1], reverse=True)
 
-                    st.markdown("#### Matched TF-IDF Features in Vocabulary")
+                    st.markdown("#### Matched Word TF-IDF Features in Vocabulary")
                     df_feats = pd.DataFrame(feature_weights[:15], columns=["Feature (N-Gram)", "TF-IDF Weight"])
                     st.dataframe(df_feats.style.format({"TF-IDF Weight": "{:.4f}"}), use_container_width=True)
                 else:

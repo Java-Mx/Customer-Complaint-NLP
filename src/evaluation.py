@@ -432,7 +432,8 @@ def plot_confusion_matrix(
     labels: Optional[list[str]] = None,
     save_path: Optional[Union[str, Path]] = None,
     normalize: Optional[str] = None,
-    figsize: Tuple[int, int] = (10, 8)
+    figsize: Tuple[int, int] = (10, 8),
+    title: Optional[str] = "Complaint Categorisation Confusion Matrix"
 ) -> plt.Figure:
     """Generate and optionally save a confusion matrix heatmap plot.
 
@@ -450,6 +451,8 @@ def plot_confusion_matrix(
         'true', 'pred', or 'all' for normalization.
     figsize : Tuple[int, int], default=(10, 8)
         Dimensions of the matplotlib figure.
+    title : str | None, default='Complaint Categorisation Confusion Matrix'
+        Title text displayed above the heatmap.
 
     Returns
     -------
@@ -457,7 +460,7 @@ def plot_confusion_matrix(
         Matplotlib figure object containing the styled heatmap.
     """
     y_t, y_p = _validate_inputs(y_true, y_pred)
-    class_names = labels or sorted(list(set(y_t).union(set(y_p))))
+    class_names = list(labels) if labels is not None else sorted(list(set(y_t).union(set(y_p))))
 
     cm = confusion_matrix(y_t, y_p, labels=class_names, normalize=normalize)
 
@@ -473,7 +476,8 @@ def plot_confusion_matrix(
         cbar=True,
         ax=ax
     )
-    ax.set_title("Complaint Categorisation Confusion Matrix", fontsize=14, pad=12)
+    plot_title = title if title else "Complaint Categorisation Confusion Matrix"
+    ax.set_title(plot_title, fontsize=14, pad=12)
     ax.set_xlabel("Predicted Product Category", fontsize=11)
     ax.set_ylabel("Actual Product Category", fontsize=11)
     plt.xticks(rotation=45, ha="right", fontsize=9)

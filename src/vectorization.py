@@ -22,7 +22,7 @@ from __future__ import annotations
 from typing import Any, Iterable, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
-from scipy.sparse import issparse, spmatrix
+from scipy.sparse import csr_matrix, hstack, issparse, spmatrix
 from sklearn.exceptions import NotFittedError
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.utils.validation import check_is_fitted
@@ -238,3 +238,151 @@ def fit_transform_corpus(
     """
     vec = vectorizer if vectorizer is not None else create_vectorizer()
     return fit_transform_tfidf(vec, corpus)
+
+
+def create_char_vectorizer(
+    ngram_range: Tuple[int, int] = (3, 5),
+    min_df: Union[int, float] = 2,
+    max_df: Union[int, float] = 0.95,
+    sublinear_tf: bool = True,
+    lowercase: bool = False,
+    max_features: Optional[int] = None,
+    analyzer: str = "char_wb",
+    **kwargs: Any
+) -> TfidfVectorizer:
+    """Initialize and configure a character-level TfidfVectorizer instance.
+
+    Character n-grams within word boundaries ('char_wb') capture subword roots,
+    prefixes, suffixes, financial acronyms, typos, and terminology variations.
+
+    Parameters
+    ----------
+    ngram_range : Tuple[int, int], default=(3, 5)
+        Character n-gram range (e.g. 3 to 5 characters).
+    min_df : int | float, default=2
+        Minimum document frequency threshold.
+    max_df : int | float, default=0.95
+        Maximum document frequency threshold.
+    sublinear_tf : bool, default=True
+        Apply sublinear term frequency scaling (1 + log(tf)).
+    lowercase : bool, default=False
+        Assumes text is already lowercased in preprocessing.
+    max_features : int | None, optional
+        Maximum features to retain.
+    analyzer : str, default='char_wb'
+        Feature analyzer type. 'char_wb' creates character n-grams from text
+        within word boundaries.
+    **kwargs : Any
+        Additional keyword arguments forwarded to TfidfVectorizer.
+
+    Returns
+    -------
+    TfidfVectorizer
+        Configured un-fitted character vectorizer instance.
+    """
+    return TfidfVectorizer(
+        ngram_range=ngram_range,
+        min_df=min_df,
+        max_df=max_df,
+        sublinear_tf=sublinear_tf,
+        lowercase=lowercase,
+        max_features=max_features,
+        analyzer=analyzer,
+        **kwargs
+    )
+
+
+def combine_sparse_matrices(
+    X1: spmatrix,
+    X2: spmatrix
+) -> spmatrix:
+    """Horizontally stack two sparse feature matrices into a single sparse CSR matrix.
+
+    Ensures zero dense memory conversion, maintaining strict scalability.
+
+    Parameters
+    ----------
+    X1 : spmatrix
+        First sparse matrix of shape (N, D1).
+    X2 : spmatrix
+        Second sparse matrix of shape (N, D2).
+
+    Returns
+    -------
+    scipy.sparse.spmatrix
+        Combined sparse matrix of shape (N, D1 + D2) in CSR format.
+
+    Raises
+    ------
+    TypeError
+        If X1 or X2 are not sparse matrices.
+    ValueError
+        If row dimensions do not match.
+    """
+    if not issparse(X1) or not issparse(X2):
+        raise TypeError(
+            f"Both inputs must be scipy sparse matrices. Got {type(X1).__name__} and {type(X2).__name__}."
+        )
+    if X1.shape[0] != X2.shape[0]:
+        raise ValueError(
+            f"Row count mismatch: X1 has {X1.shape[0]} rows, X2 has {X2.shape[0]} rows."
+        )
+
+    return hstack([X1, X2], format="csr")
+
+
+def fit_transform_word_char(
+    word_vec: TfidfVectorizer,
+    char_vec: TfidfVectorizer,
+    texts: Iterable[str]
+) -> Tuple[TfidfVectorizer, TfidfVectorizer, spmatrix]:
+    """Fit both word and character vectorizers and return combined sparse CSR matrix.
+
+    Parameters
+    ----------
+    word_vec : TfidfVectorizer
+        Un-fitted word-level TfidfVectorizer.
+    char_vec : TfidfVectorizer
+        Un-fitted character-level TfidfVectorizer.
+    texts : Iterable[str]
+        Collection of preprocessed text strings.
+
+    Returns
+    -------
+    Tuple[TfidfVectorizer, TfidfVectorizer, scipy.sparse.spmatrix]
+        (fitted_word_vec, fitted_char_vec, combined_sparse_matrix)
+    """
+    validated_texts = _validate_input_documents(texts)
+    X_word = word_vec.fit_transform(validated_texts)
+    X_char = char_vec.fit_transform(validated_texts)
+    X_comb = combine_sparse_matrices(X_word, X_char)
+    return word_vec, char_vec, X_comb
+
+
+def transform_word_char(
+    word_vec: TfidfVectorizer,
+    char_vec: TfidfVectorizer,
+    texts: Iterable[str]
+) -> spmatrix:
+    """Transform documents using fitted word and character vectorizers into a combined sparse CSR matrix.
+
+    Parameters
+    ----------
+    word_vec : TfidfVectorizer
+        Fitted word-level TfidfVectorizer.
+    char_vec : TfidfVectorizer
+        Fitted character-level TfidfVectorizer.
+    texts : Iterable[str]
+        Collection of preprocessed text strings.
+
+    Returns
+    -------
+    scipy.sparse.spmatrix
+        Combined sparse CSR feature matrix of shape (N, D_word + D_char).
+    """
+    check_is_fitted(word_vec)
+    check_is_fitted(char_vec)
+    validated_texts = _validate_input_documents(texts)
+    X_word = word_vec.transform(validated_texts)
+    X_char = char_vec.transform(validated_texts)
+    return combine_sparse_matrices(X_word, X_char)

@@ -16,6 +16,7 @@ import pandas as pd
 from scipy.sparse import issparse, spmatrix
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import LogisticRegression
+from sklearn.svm import LinearSVC
 from sklearn.model_selection import train_test_split
 from sklearn.utils.validation import check_is_fitted
 
@@ -29,9 +30,11 @@ def create_classifier(
     max_iter: int = 1000,
     random_state: int = 42,
     solver: str = "lbfgs",
+    classifier_type: str = "logistic_regression",
+    class_weight: Optional[Union[str, Dict[Any, float]]] = None,
     **kwargs: Any
-) -> LogisticRegression:
-    """Initialize and configure a classical Logistic Regression classifier.
+) -> Union[LogisticRegression, LinearSVC]:
+    """Initialize and configure a classical classifier (Logistic Regression or LinearSVC).
 
     Parameters
     ----------
@@ -42,49 +45,108 @@ def create_classifier(
     random_state : int, default=42
         Seed for reproducibility.
     solver : str, default='lbfgs'
-        Optimization algorithm. 'lbfgs' natively supports multinomial loss
-        and sparse input matrices.
+        Optimization algorithm for LogisticRegression.
+    classifier_type : str, default='logistic_regression'
+        Model architecture: 'logistic_regression' or 'linear_svc'.
+    class_weight : str | dict | None, optional
+        Weights associated with classes (e.g. 'balanced' to mitigate class imbalance).
     **kwargs : Any
-        Additional keyword arguments forwarded to Scikit-learn's LogisticRegression.
+        Additional keyword arguments forwarded to the classifier constructor.
 
     Returns
     -------
-    LogisticRegression
-        Configured un-fitted LogisticRegression instance.
+    LogisticRegression | LinearSVC
+        Configured un-fitted classifier instance.
 
     Raises
     ------
     ValueError
-        If C <= 0 or max_iter <= 0.
+        If C <= 0, max_iter <= 0, or unsupported classifier_type.
     """
     if C <= 0:
         raise ValueError(f"Inverse regularization strength C must be positive, got {C}.")
     if max_iter <= 0:
         raise ValueError(f"max_iter must be a positive integer, got {max_iter}.")
 
-    return LogisticRegression(
+    c_type = classifier_type.strip().lower()
+    if c_type in ("logistic_regression", "lr", "logistic"):
+        return LogisticRegression(
+            C=C,
+            max_iter=max_iter,
+            random_state=random_state,
+            solver=solver,
+            class_weight=class_weight,
+            **kwargs
+        )
+    elif c_type in ("linear_svc", "svc", "linear_svm", "svm"):
+        return LinearSVC(
+            C=C,
+            max_iter=max_iter,
+            random_state=random_state,
+            class_weight=class_weight,
+            **kwargs
+        )
+    else:
+        raise ValueError(
+            f"Unsupported classifier_type '{classifier_type}'. Choose 'logistic_regression' or 'linear_svc'."
+        )
+
+
+def create_linear_svc(
+    C: float = 1.0,
+    max_iter: int = 2000,
+    random_state: int = 42,
+    class_weight: Optional[Union[str, Dict[Any, float]]] = None,
+    **kwargs: Any
+) -> LinearSVC:
+    """Initialize and configure a classical Linear Support Vector Classifier (LinearSVC).
+
+    LinearSVC uses a linear kernel optimized via liblinear, operating with high
+    efficiency on large-vocabulary sparse text matrices.
+
+    Parameters
+    ----------
+    C : float, default=1.0
+        Regularization parameter.
+    max_iter : int, default=2000
+        Maximum iterations for convergence.
+    random_state : int, default=42
+        Reproducibility seed.
+    class_weight : str | dict | None, optional
+        Set to 'balanced' to automatically adjust weights inversely proportional
+        to class frequencies.
+    **kwargs : Any
+        Additional arguments forwarded to LinearSVC.
+
+    Returns
+    -------
+    LinearSVC
+        Configured un-fitted LinearSVC instance.
+    """
+    return create_classifier(
         C=C,
         max_iter=max_iter,
         random_state=random_state,
-        solver=solver,
+        classifier_type="linear_svc",
+        class_weight=class_weight,
         **kwargs
     )
 
 
 def fit_classifier(
-    classifier: LogisticRegression,
+    classifier: Union[LogisticRegression, LinearSVC],
     X_train: Any,
     y_train: Any
-) -> LogisticRegression:
-    """Fit a Logistic Regression classifier on training feature matrix and labels.
+) -> Union[LogisticRegression, LinearSVC]:
+    """Fit a Logistic Regression or LinearSVC classifier on training feature matrix and labels.
 
     Operates natively on sparse matrices (e.g. scipy.sparse.csr_matrix) to
     maintain scalability and prevent dense memory allocation on large corpora.
 
     Parameters
     ----------
-    classifier : LogisticRegression
-        Configured LogisticRegression instance.
+    classifier : LogisticRegression | LinearSVC
+        Configured classifier instance.
     X_train : spmatrix | np.ndarray
         Sparse NxD feature matrix (or dense ndarray) of complaint representations.
     y_train : Sequence[Any] | np.ndarray | pd.Series
@@ -92,8 +154,8 @@ def fit_classifier(
 
     Returns
     -------
-    LogisticRegression
-        Fitted LogisticRegression classifier.
+    LogisticRegression | LinearSVC
+        Fitted classifier.
 
     Raises
     ------
@@ -104,8 +166,8 @@ def fit_classifier(
     """
     if classifier is None:
         raise TypeError("classifier cannot be None.")
-    if not isinstance(classifier, LogisticRegression):
-        raise TypeError(f"Expected LogisticRegression classifier, got {type(classifier).__name__}.")
+    if not isinstance(classifier, (LogisticRegression, LinearSVC)):
+        raise TypeError(f"Expected LogisticRegression or LinearSVC classifier, got {type(classifier).__name__}.")
 
     if X_train is None:
         raise TypeError("X_train cannot be None.")
@@ -215,8 +277,8 @@ def predict_categories(
     """
     if classifier is None:
         raise TypeError("classifier cannot be None.")
-    if not isinstance(classifier, LogisticRegression):
-        raise TypeError(f"Expected LogisticRegression classifier, got {type(classifier).__name__}.")
+    if not isinstance(classifier, (LogisticRegression, LinearSVC)):
+        raise TypeError(f"Expected LogisticRegression or LinearSVC classifier, got {type(classifier).__name__}.")
 
     check_is_fitted(classifier)
 
@@ -238,22 +300,27 @@ def predict_categories(
 
 
 def predict_category_proba(
-    classifier: LogisticRegression,
+    classifier: Union[LogisticRegression, LinearSVC],
     X: Any
 ) -> np.ndarray:
-    """Predict class probability distributions for a feature matrix.
+    """Predict class probability distributions or normalized confidence scores for a feature matrix.
+
+    For Logistic Regression, returns true calibrated class probabilities from predict_proba().
+    For LinearSVC, computes normalized confidence scores via numerically stable softmax
+    over decision_function() margins. Note that for LinearSVC, these are normalized
+    confidence scores rather than calibrated probabilities.
 
     Parameters
     ----------
-    classifier : LogisticRegression
-        Fitted LogisticRegression model.
+    classifier : LogisticRegression | LinearSVC
+        Fitted classifier model.
     X : spmatrix | np.ndarray
         Sparse NxD feature matrix (or dense ndarray).
 
     Returns
     -------
     np.ndarray
-        2D array of class probabilities of shape (N, num_classes).
+        2D array of class scores of shape (N, num_classes).
 
     Raises
     ------
@@ -266,8 +333,8 @@ def predict_category_proba(
     """
     if classifier is None:
         raise TypeError("classifier cannot be None.")
-    if not isinstance(classifier, LogisticRegression):
-        raise TypeError(f"Expected LogisticRegression classifier, got {type(classifier).__name__}.")
+    if not isinstance(classifier, (LogisticRegression, LinearSVC)):
+        raise TypeError(f"Expected LogisticRegression or LinearSVC classifier, got {type(classifier).__name__}.")
 
     check_is_fitted(classifier)
 
@@ -285,7 +352,16 @@ def predict_category_proba(
             f"but classifier was trained on {classifier.n_features_in_} features."
         )
 
-    return classifier.predict_proba(X)
+    if hasattr(classifier, "predict_proba"):
+        return classifier.predict_proba(X)
+    elif hasattr(classifier, "decision_function"):
+        scores = classifier.decision_function(X)
+        if scores.ndim == 1:
+            scores = np.vstack([-scores, scores]).T
+        exp_scores = np.exp(scores - np.max(scores, axis=1, keepdims=True))
+        return exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+    else:
+        raise AttributeError(f"Classifier {type(classifier).__name__} does not have predict_proba or decision_function.")
 
 
 def predict_complaint_category(
@@ -299,12 +375,14 @@ def predict_complaint_category(
     Executes the single-complaint inference pipeline:
     Raw Text -> [Preprocessing] -> TF-IDF Vectorization -> Classifier Inference -> (Category, Confidence).
 
+    Supports single TfidfVectorizer or composite tuple/list of (word_vectorizer, char_vectorizer).
+
     Parameters
     ----------
     model : Any
-        Trained classification model (LogisticRegression).
+        Trained classification model (LogisticRegression or LinearSVC).
     vectorizer : Any
-        Fitted TfidfVectorizer.
+        Fitted TfidfVectorizer or tuple/list of (word_vec, char_vec).
     narrative : str
         Customer complaint text narrative.
     preprocess : bool, default=True
@@ -314,7 +392,7 @@ def predict_complaint_category(
     -------
     Tuple[str, float]
         (predicted_category, confidence_score) where confidence is the maximum
-        predicted class probability in range [0.0, 1.0].
+        predicted class probability or normalized decision confidence in range [0.0, 1.0].
 
     Raises
     ------
@@ -336,15 +414,27 @@ def predict_complaint_category(
         raise TypeError("TF-IDF vectorizer cannot be None.")
 
     cleaned_text = preprocess_text(narrative) if preprocess else narrative
-    # Transform using fitted TF-IDF vectorizer
-    X_vec = vectorizer.transform([cleaned_text])
+
+    # Handle composite (word, char) vectorizers or single vectorizer
+    if isinstance(vectorizer, (tuple, list)):
+        from src.vectorization import transform_word_char
+        X_vec = transform_word_char(vectorizer[0], vectorizer[1], [cleaned_text])
+    else:
+        X_vec = vectorizer.transform([cleaned_text])
 
     predicted_label = model.predict(X_vec)[0]
 
-    # Compute prediction confidence if predict_proba is available
+    # Compute prediction confidence
     if hasattr(model, "predict_proba"):
         probabilities = model.predict_proba(X_vec)[0]
         confidence = float(np.max(probabilities))
+    elif hasattr(model, "decision_function"):
+        scores = model.decision_function(X_vec)[0]
+        if scores.ndim == 0:
+            scores = np.array([-float(scores), float(scores)])
+        exp_s = np.exp(scores - np.max(scores))
+        norm_scores = exp_s / np.sum(exp_s)
+        confidence = float(np.max(norm_scores))
     else:
         confidence = 1.0
 
@@ -432,13 +522,25 @@ def train_test_split_data(
         else:
             strat_target = categories
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        texts,
-        categories,
-        test_size=test_size,
-        random_state=random_state,
-        stratify=strat_target
-    )
+    try:
+        X_train, X_test, y_train, y_test = train_test_split(
+            texts,
+            categories,
+            test_size=test_size,
+            random_state=random_state,
+            stratify=strat_target
+        )
+    except ValueError as err:
+        logger.warning(
+            f"Stratified train_test_split failed ({err}). Falling back to unstratified split."
+        )
+        X_train, X_test, y_train, y_test = train_test_split(
+            texts,
+            categories,
+            test_size=test_size,
+            random_state=random_state,
+            stratify=None
+        )
 
     return X_train, X_test, y_train, y_test
 
