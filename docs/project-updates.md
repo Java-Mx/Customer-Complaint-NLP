@@ -140,3 +140,19 @@ This document serves as the permanent chronological engineering, modeling, and r
   - `docs/taxonomy-analysis.md`, `docs/viva-preparation.md`
   - `tests/test_taxonomy.py` (14 new tests). Total test suite reached **190 tests** (all passing).
   - Streamlit "Taxonomy Analysis" module added (`HTTP 200` verified).
+
+---
+
+## Milestone 12: Presentation-Ready Academic Live Demo & Visual Analytics
+- **Commit:** Current
+- **Commit Message:** `feat: improve live demo interface and visual analytics`
+- **Scope & Changes:** Refactored the Streamlit web application (`app/app.py`, `app/ui_components.py`, `app/charts.py`) into a polished, presentation-ready academic NLP demo designed for university vivas and project defenses.
+- **NLP / ML User Experience Concepts:**
+  - **Live Demo as Opening Hero:** Established LIVE Complaint Analysis as the primary opening module, communicating the classical NLP pipeline within 5 seconds.
+  - **Rectangular Button Navigation:** Replaced default radio buttons with rounded rectangular buttons and compact real-time System Status (CFPB API health, dynamic dataset records, model, and sparse representation).
+  - **Interactive Demonstration Examples:** Provided 6 domain-standard CFPB product grievances alongside 3 intentionally ambiguous test cases illustrating linguistic overlap across product boundaries (Credit Card vs. Credit Reporting, Debt Collection vs. Identity Theft, Checking Overdraft vs. Payday Loan). Connected using Streamlit `on_click` callbacks to eliminate state collisions.
+  - **End-to-End Pipeline Trace & Active Features:** Displayed original vs. preprocessed text, 237,148-dimensional Word+Char TF-IDF representation, active non-zero feature counts, and top active n-gram weights without dense allocation.
+  - **Sparse Cosine Similarity Retrieval:** Retrieved top-5 historically similar CFPB complaints with cosine similarity scores, complaint IDs, and expandable narratives using the indexed Word TF-IDF corpus.
+  - **Integrated Empirical Model Insights:** Embedded publication-ready dark-theme charts for controlled baseline vs. improved models (Accuracy, Macro F1, Weighted F1), cross-taxonomy benchmarks, dataset class distributions across 18 product categories, per-category F1 scores, and top confusion pairs with non-GUI Agg backend rendering and figure lifecycle cleanup.
+- **Tests & Verification:** Added 5 chart tests (`tests/test_ui_charts.py`), 3 UI component and end-to-end inference tests (`tests/test_ui_components.py`), and 3 Streamlit AppTest and server integration tests (`tests/test_streamlit_app.py`) verifying headless startup, navigation, example button population, live inference, and clear actions. Total test suite reached **209 unit and integration tests** (all passing).
+

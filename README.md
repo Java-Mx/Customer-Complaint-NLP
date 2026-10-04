@@ -194,19 +194,26 @@ Customer-Complaint-NLP/
 ## Usage
 
 ### Running Tests
-Execute the full test suite (**198 tests passed**) via pytest:
+Execute the full test suite (**209 tests passed**) via pytest:
 ```bash
 python -m pytest -v
 ```
 
 ### Running the Web Application
-Launch the Streamlit web dashboard:
+Launch the presentation-ready Streamlit web dashboard:
 ```bash
 streamlit run app/app.py
 ```
 
-The interactive application includes:
-- **LIVE Complaint Analysis**: Type or paste any unseen customer complaint narrative to immediately obtain the predicted financial product category, model confidence score, pipeline trace (original vs. preprocessed text), active TF-IDF feature breakdown, and top-5 historically similar complaints retrieved via cosine similarity.
+The interactive application features an academic NLP interface:
+- **LIVE Complaint Analysis (Opening Hero Module)**: Type or paste any unseen customer complaint narrative or select from authentic demonstration examples (including domain-standard and intentionally ambiguous viva boundary cases). Immediately inspects:
+  - **Predicted Product Category & Confidence Score**: Displayed with top-5 class confidence distributions.
+  - **Pipeline Trace**: Step-by-step transparency showing raw vs. cleaned text, Word+Char TF-IDF representation (237,148 sparse CSR dimensions), and active non-zero feature counts.
+  - **Highest-Weighted Active Features**: Exact n-grams and learned TF-IDF weights extracted from the input narrative.
+  - **Top Similar Historical CFPB Complaints**: Sparse cosine retrieval against indexed historical complaints with expandable narratives.
+  - **What This Demonstrates**: Concise explanation of the 6 classical NLP pipeline stages (with zero reliance on LLMs or external generative APIs).
+  - **Model & Dataset Insights Dashboard**: Embedded dark-mode charts comparing controlled baseline vs. improved models (Accuracy, Macro F1, Weighted F1), cross-taxonomy benchmarks, dataset class distributions, 18-category F1 metrics, and top confusion pairs.
+- **Sidebar Navigation**: Clean rounded rectangular buttons replacing default radio controls, with compact real-time System Status (CFPB API health, local dataset, model, and representation).
 - **CFPB Live API & Data Explorer**: Live Elasticsearch querying of the official CFPB Search API v1 and interactive exploration of the local 25,000-record dataset.
 - **Model Evaluation & Diagnostics**: Performance metrics, confusion matrices, and controlled benchmark comparisons.
 - **Error Analysis**: Confusion pairs and confidence distribution breakdown on the 5,000-record holdout test set.
@@ -214,6 +221,7 @@ The interactive application includes:
 - **Cosine Similarity Retrieval**: Independent similarity query engine against indexed historical complaints.
 - **Complaint Categorisation**: Batch and interactive supervised categorization.
 - **Text Preprocessing & TF-IDF**: Interactive stage-by-stage tokenization and n-gram inspector.
+- **System Architecture**: Complete pipeline schematic and milestone tracking.
 
 ### Running Systematic Model Experiments
 Run the model evaluation and selection pipeline across all 30+ validation configurations:

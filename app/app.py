@@ -11,6 +11,7 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Optional
 
 # Ensure project root is on sys.path before importing from src
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -51,20 +52,22 @@ from src.evaluation import (
     plot_confusion_matrix,
 )
 from src.cfpb_api import fetch_cfpb_data, test_api_connection
+from app.ui_components import (
+    apply_custom_styles,
+    render_sidebar_navigation,
+    render_live_demo_header,
+    render_example_complaint_buttons,
+    render_prediction_result,
+    render_pipeline_trace,
+    render_highest_weighted_features,
+    render_similarity_results,
+    render_what_this_demonstrates,
+    render_model_insights_section,
+)
+
 
 def get_status_icon_svg(status: str) -> str:
-    """Return inline SVG for clean, lightweight visual status indication without emojis.
-
-    Parameters
-    ----------
-    status : str
-        'check' (green tick), 'cross' (red X), 'warning' (amber alert), or 'info' (neutral dot).
-
-    Returns
-    -------
-    str
-        Inline SVG HTML markup string.
-    """
+    """Return inline SVG for clean visual status indication without emojis."""
     if status == "check":
         return (
             '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" '
@@ -102,16 +105,8 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("Customer Complaint Similarity & Categorisation")
-st.markdown(
-    """
-    **Academic NLP Project** analyzing real consumer complaints from the 
-    official [CFPB Consumer Complaint Database](https://www.consumerfinance.gov/data-research/consumer-complaints/)
-    and [CFPB Search API v1](https://www.consumerfinance.gov/data-research/consumer-complaints/search/api/v1/).
-    
-    *Classical NLP Pipeline: Preprocessing → Word+Char TF-IDF (Sparse CSR) → Cosine Similarity & Class-Balanced Supervised Classification.*
-    """
-)
+# Inject custom CSS styles
+apply_custom_styles()
 
 
 # ----------------------------------------------------------------------
@@ -246,187 +241,104 @@ def load_taxonomy_analysis_data():
     return tax_json, comp_df, audit_json, audit_df, cfg_v1, cfg_v2
 
 
+@st.cache_data
+def load_class_distribution_data() -> Optional[pd.DataFrame]:
+    """Load precomputed class distribution artifact from results/."""
+    path = ROOT_DIR / "results" / "class_distribution.csv"
+    if path.exists():
+        return pd.read_csv(path)
+    return None
+
+
 # ----------------------------------------------------------------------
-# Sidebar Navigation
+# Sidebar Navigation & System Status
 # ----------------------------------------------------------------------
 
-st.sidebar.header("Navigation")
-section = st.sidebar.radio(
-    "Select Module",
-    [
-        "System Architecture",
-        "LIVE Complaint Analysis",
-        "CFPB Live API & Data Explorer",
-        "Model Evaluation & Diagnostics",
-        "Error Analysis",
-        "Taxonomy Analysis",
-        "Cosine Similarity Retrieval",
-        "Complaint Categorisation",
-        "Text Preprocessing & TF-IDF",
-    ]
+@st.cache_data(ttl=60)
+def check_live_api_status() -> bool:
+    """Check CFPB API connectivity with caching to prevent latency on reruns."""
+    try:
+        return test_api_connection(timeout=3.0)
+    except Exception as exc:
+        logger.warning("CFPB API connectivity check failed: %s", exc)
+        return False
+
+
+@st.cache_data
+def get_dataset_record_count() -> Optional[int]:
+    """Retrieve CFPB local dataset record count dynamically from real project artifacts."""
+    dist = load_class_distribution_data()
+    if dist is not None and "total_count" in dist.columns:
+        return int(dist["total_count"].sum())
+    ea_json, _, _, _ = load_error_analysis_data()
+    if ea_json and "analysis_metadata" in ea_json:
+        return int(ea_json["analysis_metadata"].get("total_records", 25000))
+    csv_path = ROOT_DIR / "data" / "complaints.csv"
+    if csv_path.exists():
+        try:
+            with open(csv_path, "r", encoding="utf-8", errors="ignore") as f:
+                return max(0, sum(1 for _ in f) - 1)
+        except Exception:
+            pass
+    return None
+
+
+api_online = check_live_api_status()
+data_csv = ROOT_DIR / "data" / "complaints.csv"
+clf_loaded, vec_loaded = load_trained_model()
+dataset_records = get_dataset_record_count()
+
+selected_section = render_sidebar_navigation(
+    api_online=api_online,
+    data_csv_exists=data_csv.exists(),
+    clf_loaded=clf_loaded,
+    vec_loaded=vec_loaded,
+    dataset_records=dataset_records,
 )
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("System Status")
-
-# Check API status
-api_online = test_api_connection()
-if api_online:
-    st.sidebar.markdown(f"{get_status_icon_svg('check')} **CFPB Search API:** Online (HTTP 200)", unsafe_allow_html=True)
-else:
-    st.sidebar.markdown(f"{get_status_icon_svg('warning')} **CFPB Search API:** Offline / Rate Limited", unsafe_allow_html=True)
-
-# Check Local Dataset
-data_csv = ROOT_DIR / "data" / "complaints.csv"
-if data_csv.exists():
-    st.sidebar.markdown(f"{get_status_icon_svg('check')} **Local Dataset:** {data_csv.name} (25,000 records)", unsafe_allow_html=True)
-else:
-    st.sidebar.markdown(f"{get_status_icon_svg('cross')} **Local Dataset:** complaints.csv Not Found", unsafe_allow_html=True)
-
-# Check Model Status
-clf_loaded, vec_loaded = load_trained_model()
-if clf_loaded is not None:
-    feat_desc = "Combined Word+Char" if isinstance(vec_loaded, tuple) else "Word TF-IDF"
-    st.sidebar.markdown(f"{get_status_icon_svg('check')} **Model:** {type(clf_loaded).__name__} ({feat_desc})", unsafe_allow_html=True)
-else:
-    st.sidebar.markdown(f"{get_status_icon_svg('warning')} **Model:** Not loaded", unsafe_allow_html=True)
-
 
 # ----------------------------------------------------------------------
-# SECTION 1: SYSTEM ARCHITECTURE
+# MODULE 1: LIVE COMPLAINT ANALYSIS (HERO MODULE - DEFAULT)
 # ----------------------------------------------------------------------
 
-if section == "System Architecture":
-    st.subheader("System Architecture & Pipeline Design")
-    st.markdown(
-        """
-        ```
-                            CFPB Consumer Complaints
-                      (Local CSV or Live CFPB Search API)
-                                      ↓
-                               Data Preprocessing
-                 (Lowercasing, Redaction Cleaning, Tokenization,
-                       Number Normalization, Stopwords)
-                                      ↓
-                     Feature Extraction: TF-IDF Engine
-          ┌──────────────────────────────────────────────────────────┐
-          │  Word TF-IDF: Unigrams + Bigrams (ngram_range=(1,2))    │
-          │  Char TF-IDF: Subwords within boundaries (char_wb, 3-5)  │
-          │  Combined: scipy.sparse.hstack (237,148 sparse features) │
-          └──────────────────────────────────────────────────────────┘
-                                      ↓
-                    ┌───────────────────────────────────┐
-                    │                                   │
-                    ▼                                   ▼
-          Cosine Similarity Retrieval         Supervised Classification
-        (Pairwise dot product on CSR)     (Class-Balanced Logistic Regression / LinearSVC)
-                    │                                   │
-                    ▼                                   ▼
-          Top-K Similar Grievances             Predicted Product Category
-                                                        │
-                                                        ▼
-                                                 Model Evaluation
-                                          (Accuracy: 69.56%, Macro F1: 50.56%,
-                                            Weighted F1: 69.55% on N=5,000 Test)
-        ```
-        """
-    )
+if selected_section == "LIVE DEMO":
+    render_live_demo_header()
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown("### Real-World CFPB Data")
-        st.write(
-            "Trained and evaluated on the authentic CFPB Consumer Complaint Database (25,000 complaints). "
-            "Partitioned with zero data leakage: 20,000 training pool and 5,000 untouched test records."
-        )
-    with col2:
-        st.markdown("### Word + Character Subwords")
-        st.write(
-            "Fuses word n-grams with character n-grams (`char_wb`, 3–5) to robustly capture compound terms, "
-            "prefixes, suffixes, financial acronyms, and terminology variations in sparse CSR format."
-        )
-    with col3:
-        st.markdown("### Measured Performance Gain")
-        st.write(
-            "Class-balanced optimization elevated **Macro F1 from 34.15% to 50.56%** (+16.41 pp gain) "
-            "and **Accuracy to 69.56%** on the controlled 5,000-record holdout test set."
-        )
-
-    st.markdown("---")
-    st.markdown("### Systematic Engineering & Research Milestones")
-    milestones = [
-        ("1. Repository Foundation & Scaffolding", "Complete", "6b161cf"),
-        ("2. CFPB Dataset Loading & Validation", "Complete", "24752a0"),
-        ("3. Classical Text Preprocessing Pipeline", "Complete", "e964ec0"),
-        ("4. TF-IDF Vectorisation (Unigrams + Bigrams)", "Complete", "364ebc4"),
-        ("5. Cosine Similarity Complaint Search", "Complete", "99bd215"),
-        ("6. Supervised Classification Baseline", "Complete", "164f722"),
-        ("7. Model Evaluation & Live CFPB API Integration", "Complete", "6f6bfc4"),
-        ("8. Systematic Classical Model Improvement", "Complete", "4ef78fe"),
-        ("9. Classification Error Analysis", "Complete", "4cf8afa"),
-        ("10. Taxonomy-Aware Classification Analysis", "Complete", "0d49099"),
-    ]
-    st.table(pd.DataFrame(milestones, columns=["Milestone", "Status", "Git Commit"]))
-
-
-# ----------------------------------------------------------------------
-# SECTION: LIVE COMPLAINT ANALYSIS
-# ----------------------------------------------------------------------
-
-elif section == "LIVE Complaint Analysis":
-    st.subheader("LIVE Complaint Analysis")
-    st.markdown(
-        """
-        Interactive demonstration of the trained classical NLP pipeline on unseen customer complaints.
-        Evaluates supervised categorization and historical lexical similarity in real time without large language models.
-        """
-    )
-
-    example_complaints = {
-        "Credit Card Dispute": (
-            "I noticed multiple unauthorized transactions and hidden fees charged to my credit card statement "
-            "without my permission. I contacted customer service immediately to dispute the charges, but the bank "
-            "refused to credit my account."
-        ),
-        "Debt Collection Harassment": (
-            "A debt collection agency has been calling my workplace repeatedly and contacting my family members "
-            "regarding an alleged medical debt that was already settled in 2021. They refuse to provide written debt verification."
-        ),
-        "Mortgage Servicing Issue": (
-            "My mortgage loan was transferred to a new servicer, and they failed to apply my monthly payments "
-            "to the principal balance. They also miscalculated my escrow account resulting in an erroneous late fee."
-        ),
-    }
-
-    with st.expander("Demonstration Examples (Optional)", expanded=False):
-        st.caption(
-            "Demonstration Only: Select an example to populate the input box. "
-            "These examples are for interactive evaluation and are not test set records."
-        )
-        demo_cols = st.columns(len(example_complaints))
-        for i, (demo_title, demo_text) in enumerate(example_complaints.items()):
-            with demo_cols[i]:
-                if st.button(f"Load {demo_title}", key=f"btn_live_demo_{i}"):
-                    st.session_state["live_complaint_text"] = demo_text
-                    st.rerun()
-
+    if "text_area_live_complaint" not in st.session_state:
+        st.session_state["text_area_live_complaint"] = ""
     if "live_complaint_text" not in st.session_state:
         st.session_state["live_complaint_text"] = ""
 
+    def _clear_live_complaint() -> None:
+        st.session_state["text_area_live_complaint"] = ""
+        st.session_state["live_complaint_text"] = ""
+        st.session_state["live_analyzed_data"] = None
+
+    st.markdown("##### ENTER A CUSTOMER COMPLAINT")
     complaint_input = st.text_area(
-        "Enter a customer complaint",
-        value=st.session_state["live_complaint_text"],
-        height=200,
-        help="Paste a complaint narrative that the trained model has not seen before.",
+        "Consumer Complaint Narrative",
+        key="text_area_live_complaint",
+        height=160,
+        help="Paste a consumer complaint narrative to test supervised classification and cosine retrieval.",
         placeholder="Type or paste customer complaint text here...",
-        key="text_area_live_complaint"
+        label_visibility="collapsed",
     )
-    # Synchronize manual text edits into session state
     st.session_state["live_complaint_text"] = complaint_input
 
-    col_btn, _ = st.columns([1, 4])
-    with col_btn:
-        analyze_clicked = st.button("Analyze Complaint", type="primary")
+    # Demonstration Examples
+    render_example_complaint_buttons()
+
+    # Primary and secondary action buttons
+    col_btn1, col_btn2, _ = st.columns([2, 1, 4])
+    with col_btn1:
+        analyze_clicked = st.button("ANALYZE COMPLAINT", type="primary", use_container_width=True)
+    with col_btn2:
+        st.button(
+            "CLEAR",
+            type="secondary",
+            use_container_width=True,
+            on_click=_clear_live_complaint,
+        )
 
     if analyze_clicked:
         if not complaint_input or not complaint_input.strip():
@@ -436,8 +348,8 @@ elif section == "LIVE Complaint Analysis":
             clf_model, vec_model = load_trained_model()
             if clf_model is None or vec_model is None:
                 st.warning(
-                    "The trained classification model is not available. Please place the "
-                    "serialized model artifacts in the models/ directory."
+                    "The trained classification model is not available. Please ensure "
+                    "serialized model artifacts exist in the models/ directory."
                 )
                 st.session_state["live_analyzed_data"] = None
             else:
@@ -473,7 +385,7 @@ elif section == "LIVE Complaint Analysis":
                         "is_composite": c_vec is not None,
                     }
 
-    # Render analysis results if available
+    # Render prediction results if available
     analyzed_data = st.session_state.get("live_analyzed_data")
     if analyzed_data is not None and analyzed_data.get("raw_complaint") == complaint_input:
         clf_model, vec_model = load_trained_model()
@@ -481,168 +393,46 @@ elif section == "LIVE Complaint Analysis":
         c_vec = vec_model[1] if isinstance(vec_model, tuple) else None
 
         st.markdown("---")
-        st.markdown("### Prediction Result")
+        render_prediction_result(analyzed_data)
 
-        pcol1, pcol2 = st.columns([2, 1])
-        with pcol1:
-            st.markdown("#### Predicted Category")
-            st.subheader(analyzed_data["pred_category"])
-        with pcol2:
-            st.markdown("#### Model Confidence Score")
-            st.metric("Confidence", f"{analyzed_data['confidence']:.2%}")
-            st.caption("Derived from Logistic Regression softmax probabilities; reflects model confidence, not calibrated accuracy.")
-
-        # Top 5 category distribution
-        probs = analyzed_data["probabilities"]
-        classes = analyzed_data["classes"]
-        top5_indices = np.argsort(probs)[::-1][:5]
-
-        st.markdown("##### Top 5 Product Categories by Model Confidence")
-        for idx in top5_indices:
-            cat_label = classes[idx]
-            cat_prob = float(probs[idx])
-            st.write(f"- **{cat_label}**: `{cat_prob:.2%}`")
-            st.progress(min(max(cat_prob, 0.0), 1.0))
-
-        # Pipeline Trace
         st.markdown("---")
-        with st.expander("How the complaint was processed (Pipeline Trace)", expanded=True):
-            st.markdown(
-                """
-                ```text
-                Raw Complaint
-                      ↓
-                Preprocessing (src.preprocessing.preprocess_text)
-                      ↓
-                Word + Character TF-IDF (Sparse CSR: 237,148 dimensions)
-                      ↓
-                Logistic Regression (class_weight='balanced')
-                      ↓
-                Predicted Category
-                ```
-                """
-            )
-            st.markdown("**The cleaned complaint is converted into a sparse TF-IDF representation.**")
-            tcol1, tcol2 = st.columns(2)
-            with tcol1:
-                st.markdown("**Original Raw Complaint:**")
-                st.text_area("Raw Text Display", value=analyzed_data["raw_complaint"], height=120, disabled=True, label_visibility="collapsed")
-            with tcol2:
-                st.markdown("**Preprocessed Text (`preprocess_text`):**")
-                st.text_area("Cleaned Text Display", value=analyzed_data["clean_text"], height=120, disabled=True, label_visibility="collapsed")
+        render_pipeline_trace(analyzed_data)
 
-        # TF-IDF Feature Summary
         st.markdown("---")
-        st.markdown("### TF-IDF Feature Representation Summary")
-        rep_type = "Combined Word + Character TF-IDF" if analyzed_data["is_composite"] else "Word TF-IDF"
-        fcol1, fcol2, fcol3 = st.columns(3)
-        with fcol1:
-            st.metric("Feature Representation", rep_type)
-        with fcol2:
-            st.metric("Total Feature Dimension", f"{analyzed_data['feature_dim']:,}")
-        with fcol3:
-            st.metric("Active Non-Zero Features", f"{analyzed_data['active_nnz']:,}")
+        render_highest_weighted_features(w_vec, c_vec, analyzed_data["clean_text"])
 
-        st.caption("Representation Type: Sparse CSR (`scipy.sparse.csr_matrix`). Preserves memory efficiency without dense allocation.")
-
-        df_active = get_top_active_features(w_vec, c_vec, analyzed_data["clean_text"], top_n=10)
-        if not df_active.empty:
-            st.markdown("##### Highest-Weighted Active Features in Complaint")
-            disp_active = df_active.rename(columns={
-                "feature": "Active Feature (N-gram)",
-                "type": "N-gram Type",
-                "weight": "TF-IDF Weight"
-            })
-            disp_active["TF-IDF Weight"] = disp_active["TF-IDF Weight"].apply(lambda v: f"{v:.4f}")
-            st.table(disp_active)
-
-        # Top Similar Historical Complaints
         st.markdown("---")
-        st.markdown("### Top Similar Historical CFPB Complaints")
-        st.markdown(
-            """
-            ```text
-            Complaint TF-IDF Vector
-                      ↓
-            Cosine Similarity (against indexed historical CFPB corpus)
-                      ↓
-            Top-K Similar Historical Complaints
-            ```
-            """
-        )
-        st.caption(
-            "Note on Representation Consistency (Option A): Classification employs the 237,148-dimensional "
-            "Word + Character TF-IDF representation, whereas lexical similarity search operates over the "
-            "pre-indexed Word TF-IDF historical complaints corpus to guarantee rapid sparse cosine retrieval."
-        )
-
         df_corpus, fitted_sim_vec, corpus_matrix = build_indexed_corpus(nrows=500)
-        if df_corpus.empty or fitted_sim_vec is None or corpus_matrix is None:
-            st.info("Historical CFPB complaint corpus is not available for similarity retrieval.")
-        else:
-            with st.spinner("Computing sparse cosine similarities against indexed CFPB corpus..."):
-                sim_results = find_similar_complaints(
-                    query_text=complaint_input,
-                    vectorizer=fitted_sim_vec,
-                    corpus_matrix=corpus_matrix,
-                    df_corpus=df_corpus,
-                    top_k=7,
-                    preprocess=True
-                )
-
-            # Exclude self-matches
-            filtered_matches = []
-            clean_q = analyzed_data["clean_text"]
-            for _, row in sim_results.iterrows():
-                row_text = str(row.get("complaint_text", ""))
-                row_score = float(row.get("similarity_score", 0.0))
-                if row_score > 0.9999 and (row_text.strip() == complaint_input.strip() or preprocess_text(row_text) == clean_q):
-                    continue
-                filtered_matches.append(row)
-                if len(filtered_matches) == 5:
-                    break
-
-            if not filtered_matches:
-                st.info("No distinct historical complaints retrieved above similarity threshold.")
-            else:
-                st.markdown("#### Retrieved Historical Complaints (Ranked by Cosine Similarity)")
-                for rank, match in enumerate(filtered_matches, 1):
-                    c_id = match.get("complaint_id", "N/A")
-                    c_cat = match.get("category", "General")
-                    c_score = float(match.get("similarity_score", 0.0))
-                    c_text = str(match.get("complaint_text", ""))
-
-                    with st.container():
-                        st.markdown(
-                            f"**{rank}. Category:** `{c_cat}` | **Cosine Similarity:** `{c_score:.4f}` | **Complaint ID:** `{c_id}`"
-                        )
-                        snippet = c_text[:220].replace("\n", " ") + ("..." if len(c_text) > 220 else "")
-                        st.write(f"> {snippet}")
-                        with st.expander(f"View Full Historical Narrative (ID: {c_id})"):
-                            st.write(c_text)
-                        st.divider()
-
-        # Academic Footnote
-        st.markdown("---")
-        st.markdown("#### What This Demonstrates")
-        st.markdown(
-            """
-            This demonstration uses the same classical NLP pipeline evaluated in the project.
-            The complaint is cleaned and tokenized, represented using TF-IDF, classified with
-            Logistic Regression, and compared against historical CFPB complaints using cosine similarity.
-
-            **Academic Methodology Notice:**
-            - **Classical Statistical NLP:** Operates strictly on statistical n-gram token co-occurrences and linear decision boundaries. No large language models (LLMs), pretrained semantic embeddings, or external generative APIs are used for inference.
-            - **Confidence vs. Accuracy:** The confidence score reflects the Logistic Regression normalized softmax distribution over 18 product classes. It does not indicate individual prediction correctness or calibrated probability.
-            """
+        render_similarity_results(
+            complaint_input=analyzed_data["raw_complaint"],
+            clean_q=analyzed_data["clean_text"],
+            df_corpus=df_corpus,
+            fitted_sim_vec=fitted_sim_vec,
+            corpus_matrix=corpus_matrix,
         )
 
+        st.markdown("---")
+        render_what_this_demonstrates()
+
+    # Empirical Model & Dataset Insights Section (Below Live Demo)
+    _, bvsi_df, per_cat_df, err_pairs_df = load_error_analysis_data()
+    _, tax_comp_df, _, _, _, _ = load_taxonomy_analysis_data()
+    dist_df = load_class_distribution_data()
+
+    render_model_insights_section(
+        bvsi_df=bvsi_df,
+        tax_df=tax_comp_df,
+        dist_df=dist_df,
+        per_cat_df=per_cat_df,
+        err_df=err_pairs_df,
+    )
+
 
 # ----------------------------------------------------------------------
-# SECTION 2: CFPB LIVE API & DATA EXPLORER
+# MODULE 2: CFPB LIVE API & DATA EXPLORER
 # ----------------------------------------------------------------------
 
-elif section == "CFPB Live API & Data Explorer":
+elif selected_section == "DATA EXPLORER":
     st.subheader("Official CFPB API Integration & Data Explorer")
     st.markdown(
         """
@@ -731,8 +521,8 @@ elif section == "CFPB Live API & Data Explorer":
                             st.text_area("", value=narrative_text, height=140, disabled=True)
                         else:
                             st.info(
-                                "Note: Consumer narrative is not public for this recent record. Under CFPB publication policies "
-                                "(August 2026 update), newer complaint narratives undergo FOIA redaction review before public release. "
+                                "Note: Consumer narrative is not public for this recent record. Under CFPB publication policies, "
+                                "newer complaint narratives undergo FOIA redaction review before public release. "
                                 "Categorical metadata (Product, Company, Date, State, Issue) is fully available."
                             )
 
@@ -757,10 +547,10 @@ elif section == "CFPB Live API & Data Explorer":
 
 
 # ----------------------------------------------------------------------
-# SECTION 3: MODEL EVALUATION & DIAGNOSTICS
+# MODULE 3: MODEL EVALUATION & DIAGNOSTICS
 # ----------------------------------------------------------------------
 
-elif section == "Model Evaluation & Diagnostics":
+elif selected_section == "MODEL EVALUATION":
     st.subheader("Model Evaluation & Systematic Improvements")
     st.markdown(
         """
@@ -805,7 +595,6 @@ elif section == "Model Evaluation & Diagnostics":
 
         st.markdown("---")
 
-        # Tabbed Diagnostics
         tab1, tab2, tab3 = st.tabs(["Baseline vs. Improved Comparison", "Confusion Matrix Heatmap", "Experiment Grid (30 Runs)"])
 
         with tab1:
@@ -850,12 +639,11 @@ elif section == "Model Evaluation & Diagnostics":
                 st.info("results/model_comparison.csv not found.")
 
 
-
 # ----------------------------------------------------------------------
-# SECTION 3b: ERROR ANALYSIS
+# MODULE 4: ERROR ANALYSIS
 # ----------------------------------------------------------------------
 
-elif section == "Error Analysis":
+elif selected_section == "ERROR ANALYSIS":
     st.subheader("Classification Error Analysis")
     st.markdown(
         """
@@ -875,7 +663,6 @@ elif section == "Error Analysis":
             "Run `python scripts/generate_error_analysis.py` to generate them."
         )
     else:
-        # Tab layout
         tab_overview, tab_baseline, tab_pairs, tab_percat, tab_confidence, tab_examples = st.tabs([
             "Overall Performance",
             "Controlled Baseline vs. Improved",
@@ -885,7 +672,6 @@ elif section == "Error Analysis":
             "Error Examples",
         ])
 
-        # --- Tab 1: Overall Performance ---
         with tab_overview:
             st.markdown("#### Final Model — Holdout Test Set Performance (N = 5,000)")
             m = ea_json["improved_metrics"]
@@ -933,7 +719,6 @@ elif section == "Error Analysis":
             }
             st.table(pd.DataFrame(cfg_rows))
 
-        # --- Tab 2: Controlled Baseline vs Improved ---
         with tab_baseline:
             st.markdown("#### Controlled Same-Split Comparison: Baseline vs. Improved Model")
             st.markdown(
@@ -941,10 +726,6 @@ elif section == "Error Analysis":
                 Both models are evaluated on the **identical 5,000-record holdout test set**.
                 The baseline uses the original Word TF-IDF + no class weighting configuration.
                 Only this comparison is a methodologically valid apples-to-apples contrast.
-
-                > **Note:** The historical baseline (from an earlier 600-record experiment) used a
-                > different split size and 17 categories — it is documented separately and
-                > cannot be compared directly with these numbers.
                 """
             )
             if bvsi_df is not None:
@@ -968,7 +749,6 @@ elif section == "Error Analysis":
             else:
                 st.info("baseline_vs_improved.csv not found.")
 
-        # --- Tab 3: Confusion Pairs ---
         with tab_pairs:
             st.markdown("#### Top Confusion Pairs (Actual → Predicted)")
             top_pairs = pd.DataFrame(ea_json["top20_confusion_pairs"])
@@ -984,7 +764,6 @@ elif section == "Error Analysis":
                     use_container_width=True,
                 )
 
-            # Full confusion matrix image
             st.markdown("---")
             st.markdown("#### 18 × 18 Confusion Matrix Heatmap")
             cm_img = ROOT_DIR / "results" / "confusion_matrix.png"
@@ -994,7 +773,6 @@ elif section == "Error Analysis":
             else:
                 st.info("Confusion matrix image not found at results/confusion_matrix.png.")
 
-        # --- Tab 4: Per-Category Metrics ---
         with tab_percat:
             st.markdown("#### Per-Category Performance on the 5,000-Record Test Set")
             if per_cat_df is not None:
@@ -1018,7 +796,6 @@ elif section == "Error Analysis":
                 )
 
                 st.markdown("---")
-                # Class distribution with recall and F1
                 st.markdown("#### Class Distribution Across Splits vs. Test Recall & F1")
                 dist_data = pd.DataFrame(ea_json["class_distribution"]["by_category"])
                 corr_r = ea_json["class_distribution"]["corr_test_support_vs_recall"]
@@ -1031,17 +808,12 @@ elif section == "Error Analysis":
             else:
                 st.info("per_category_metrics.csv not found.")
 
-        # --- Tab 5: Confidence Analysis ---
         with tab_confidence:
             st.markdown("#### Prediction Probability Analysis (LogisticRegression predict_proba)")
             st.markdown(
                 """
                 The table below summarises the **predicted class probability** distribution
                 for correctly classified and incorrectly classified predictions separately.
-
-                > **Note:** LogisticRegression probability outputs are **not calibrated** unless
-                > a calibration procedure (e.g., `CalibratedClassifierCV`) has been applied.
-                > These probabilities should be interpreted as model confidence scores only.
                 """
             )
             conf = ea_json.get("confidence_analysis", {})
@@ -1055,7 +827,6 @@ elif section == "Error Analysis":
                 with col2:
                     st.metric("Low-Confidence Errors (< 0.40)", str(conf.get("low_confidence_errors", "N/A")))
                 with col3:
-                    total_correct = correct_pred.get("count", 0)
                     total_incorrect = incorrect_pred.get("count", 0)
                     st.metric("Total Incorrect Predictions", f"{total_incorrect:,}")
 
@@ -1093,13 +864,9 @@ elif section == "Error Analysis":
             else:
                 st.info("Confidence analysis data not found in error_analysis_data.json.")
 
-        # --- Tab 6: Error Examples ---
         with tab_examples:
             st.markdown("#### Representative Error Cases (Top Confusion Pairs)")
-            st.markdown(
-                "Up to 5 actual test-set complaints per confusion pair. "
-                "Complaint texts are truncated for readability."
-            )
+            st.markdown("Up to 5 actual test-set complaints per confusion pair. Complaint texts are truncated for readability.")
             examples = ea_json.get("error_examples", {})
             if not examples:
                 st.info("Error examples not available.")
@@ -1124,15 +891,14 @@ elif section == "Error Analysis":
                                     "", value=ex["complaint_text_truncated"],
                                     height=150, disabled=True,
                                     key=f"ex_{selected_pair}_{i}",
-                                    )
-
+                                )
 
 
 # ----------------------------------------------------------------------
-# SECTION 3c: TAXONOMY ANALYSIS
+# MODULE 5: TAXONOMY ANALYSIS
 # ----------------------------------------------------------------------
 
-elif section == "Taxonomy Analysis":
+elif selected_section == "TAXONOMY ANALYSIS":
     st.subheader("Taxonomy-Aware Complaint Classification Analysis")
     st.markdown(
         """
@@ -1152,7 +918,6 @@ elif section == "Taxonomy Analysis":
     if tax_json is None or comp_df is None:
         st.warning("Taxonomy experiment artifacts not found. Please run `python scripts/run_taxonomy_experiment.py`.")
     else:
-        # High-level KPIs
         ref_m = tax_json["models"]["reference_18"]["metrics"]
         v1_m = tax_json["models"]["v1_conservative"]["metrics"]
         v2_m = tax_json["models"]["v2_broad"]["metrics"]
@@ -1189,7 +954,6 @@ elif section == "Taxonomy Analysis":
                 "identical 5,000-sample untouched holdout test set using Word+Char TF-IDF (237,148 features) and Logistic Regression."
             )
             st.dataframe(comp_df, use_container_width=True)
-
             st.info(
                 "**Key Observation:** Both normalized formulations produce higher Accuracy (~81-82%) and Macro F1 (~68-73%). "
                 "Crucially, this is **not** evidence that the normalized models are inherently superior classifiers; rather, "
@@ -1216,13 +980,6 @@ elif section == "Taxonomy Analysis":
 
         with tab_loss:
             st.markdown("#### Information Loss Analysis")
-            st.markdown(
-                """
-                Taxonomy normalization inevitably collapses distinctions between original categories.
-                The table below quantifies the exact records affected and documents the specific regulatory 
-                and product-domain distinctions that are surrendered in each consolidation:
-                """
-            )
             loss_choice = st.radio("Select Variant for Information Loss:", ["v1 Conservative (11 Categories)", "v2 Broad (10 Categories)"], horizontal=True, key="loss_radio")
             active_loss = tax_json["models"]["v1_conservative"]["information_loss"] if "v1" in loss_choice else tax_json["models"]["v2_broad"]["information_loss"]
 
@@ -1234,7 +991,6 @@ elif section == "Taxonomy Analysis":
             with col_c:
                 st.metric("Original Categories Merged", f"{active_loss['num_labels_merged']} -> {len(active_loss['merged_groups'])}")
 
-            st.markdown("##### Detailed Breakdown by Merged Category Group")
             loss_rows = []
             cfg_active = cfg_v1 if "v1" in loss_choice else cfg_v2
             info_dict = cfg_active.get("information_loss", {}) if cfg_active else {}
@@ -1249,13 +1005,6 @@ elif section == "Taxonomy Analysis":
 
         with tab_cross:
             st.markdown("#### Dissecting Error Elimination: Task Collapse vs. Classifier Generalization")
-            st.markdown(
-                """
-                A central academic requirement is distinguishing:
-                1. **Errors eliminated purely because the task collapsed labels** (e.g. predicting *Credit card* when actual was *Credit card or prepaid card*).
-                2. **Net performance change from retraining** the classifier on the new consolidated decision boundary.
-                """
-            )
             dissect_v1 = tax_json["models"]["v1_conservative"]["cross_task_error_dissection"]
             dissect_v2 = tax_json["models"]["v2_broad"]["cross_task_error_dissection"]
 
@@ -1305,11 +1054,10 @@ elif section == "Taxonomy Analysis":
 
 
 # ----------------------------------------------------------------------
-# SECTION 4: COSINE SIMILARITY RETRIEVAL
+# MODULE 6: COSINE SIMILARITY RETRIEVAL
 # ----------------------------------------------------------------------
 
-elif section == "Cosine Similarity Retrieval":
-
+elif selected_section == "SIMILARITY RETRIEVAL":
     st.subheader("Cosine Similarity Nearest-Neighbor Complaint Retrieval")
     st.markdown(
         """
@@ -1335,7 +1083,6 @@ elif section == "Cosine Similarity Retrieval":
         )
 
         if input_choice == "Choose Real Complaint from Database":
-            # Display real complaints to choose from
             complaint_opts = {
                 f"ID {row['complaint_id']} [{row['category']}]: {str(row['text'])[:75]}...": row["text"]
                 for _, row in df_corpus.head(25).iterrows()
@@ -1401,10 +1148,10 @@ elif section == "Cosine Similarity Retrieval":
 
 
 # ----------------------------------------------------------------------
-# SECTION 5: COMPLAINT CATEGORISATION
+# MODULE 7: COMPLAINT CATEGORISATION
 # ----------------------------------------------------------------------
 
-elif section == "Complaint Categorisation":
+elif selected_section == "CLASSIFICATION":
     st.subheader("Supervised Complaint Categorisation")
     st.markdown(
         """
@@ -1477,7 +1224,6 @@ elif section == "Complaint Categorisation":
 
                     probabilities = predict_category_proba(clf_model, X_q)[0]
 
-                # Distinguish calibrated probability vs normalized confidence
                 is_prob = hasattr(clf_model, "predict_proba")
                 conf_label = "Prediction Confidence (Probability)" if is_prob else "Normalized confidence score"
 
@@ -1508,10 +1254,10 @@ elif section == "Complaint Categorisation":
 
 
 # ----------------------------------------------------------------------
-# SECTION 6: TEXT PREPROCESSING & TF-IDF INSPECTOR
+# MODULE 8: TEXT PREPROCESSING & TF-IDF INSPECTOR
 # ----------------------------------------------------------------------
 
-elif section == "Text Preprocessing & TF-IDF":
+elif selected_section == "PREPROCESSING":
     st.subheader("Text Preprocessing & TF-IDF Feature Inspector")
     st.markdown(
         """
@@ -1557,10 +1303,8 @@ elif section == "Text Preprocessing & TF-IDF":
             st.markdown("**4. Final Reconstructed Preprocessed String:**")
             st.success(final_text)
 
-            # TF-IDF Inspection
             _, vec = load_trained_model()
             if vec is not None:
-                # Use word vectorizer if tuple
                 inspect_vec = vec[0] if isinstance(vec, tuple) else vec
                 vec_features = inspect_vec.get_feature_names_out()
                 tfidf_vec = inspect_vec.transform([final_text])
@@ -1578,3 +1322,81 @@ elif section == "Text Preprocessing & TF-IDF":
                     st.dataframe(df_feats.style.format({"TF-IDF Weight": "{:.4f}"}), use_container_width=True)
                 else:
                     st.info("No matching vocabulary n-grams found in the trained vectorizer.")
+
+
+# ----------------------------------------------------------------------
+# MODULE 9: SYSTEM ARCHITECTURE
+# ----------------------------------------------------------------------
+
+elif selected_section == "SYSTEM ARCHITECTURE":
+    st.subheader("System Architecture & Pipeline Design")
+    st.markdown(
+        """
+        ```text
+                            CFPB Consumer Complaints
+                      (Local CSV or Live CFPB Search API)
+                                      ↓
+                                Data Preprocessing
+                 (Lowercasing, Redaction Cleaning, Tokenization,
+                       Number Normalization, Stopwords)
+                                      ↓
+                     Feature Extraction: TF-IDF Engine
+          ┌──────────────────────────────────────────────────────────┐
+          │  Word TF-IDF: Unigrams + Bigrams (ngram_range=(1,2))    │
+          │  Char TF-IDF: Subwords within boundaries (char_wb, 3-5)  │
+          │  Combined: scipy.sparse.hstack (237,148 sparse features) │
+          └──────────────────────────────────────────────────────────┘
+                                      ↓
+                    ┌───────────────────────────────────┐
+                    │                                   │
+                    ▼                                   ▼
+          Cosine Similarity Retrieval         Supervised Classification
+        (Pairwise dot product on CSR)     (Class-Balanced Logistic Regression / LinearSVC)
+                    │                                   │
+                    ▼                                   ▼
+          Top-K Similar Grievances             Predicted Product Category
+                                                        │
+                                                        ▼
+                                                 Model Evaluation
+                                          (Accuracy: 69.56%, Macro F1: 50.56%,
+                                            Weighted F1: 69.55% on N=5,000 Test)
+        ```
+        """
+    )
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("### Real-World CFPB Data")
+        st.write(
+            "Trained and evaluated on the authentic CFPB Consumer Complaint Database (25,000 complaints). "
+            "Partitioned with zero data leakage: 20,000 training pool and 5,000 untouched test records."
+        )
+    with col2:
+        st.markdown("### Word + Character Subwords")
+        st.write(
+            "Fuses word n-grams with character n-grams (`char_wb`, 3–5) to robustly capture compound terms, "
+            "prefixes, suffixes, financial acronyms, and terminology variations in sparse CSR format."
+        )
+    with col3:
+        st.markdown("### Measured Performance Gain")
+        st.write(
+            "Class-balanced optimization elevated **Macro F1 from 34.15% to 50.56%** (+16.41 pp gain) "
+            "and **Accuracy to 69.56%** on the controlled 5,000-record holdout test set."
+        )
+
+    st.markdown("---")
+    st.markdown("### Systematic Engineering & Research Milestones")
+    milestones = [
+        ("1. Repository Foundation & Scaffolding", "Complete", "6b161cf"),
+        ("2. CFPB Dataset Loading & Validation", "Complete", "24752a0"),
+        ("3. Classical Text Preprocessing Pipeline", "Complete", "e964ec0"),
+        ("4. TF-IDF Vectorisation (Unigrams + Bigrams)", "Complete", "364ebc4"),
+        ("5. Cosine Similarity Complaint Search", "Complete", "99bd215"),
+        ("6. Supervised Classification Baseline", "Complete", "164f722"),
+        ("7. Model Evaluation & Live CFPB API Integration", "Complete", "6f6bfc4"),
+        ("8. Systematic Classical Model Improvement", "Complete", "4ef78fe"),
+        ("9. Classification Error Analysis", "Complete", "4cf8afa"),
+        ("10. Taxonomy-Aware Classification Analysis", "Complete", "0d49099"),
+        ("11. Polished Academic Live Demo & Visual Analytics", "Complete", "Current"),
+    ]
+    st.table(pd.DataFrame(milestones, columns=["Milestone", "Status", "Git Commit"]))
