@@ -74,3 +74,32 @@ def test_demo_complaints_end_to_end_inference():
         assert not df_active.empty
         assert "feature" in df_active.columns
         assert "weight" in df_active.columns
+
+
+def test_app_package_structure():
+    """Verify app is a proper Python package with __init__.py and importable components."""
+    init_file = ROOT_DIR / "app" / "__init__.py"
+    assert init_file.exists(), "app directory must contain __init__.py to prevent namespace shadowing"
+
+    import app
+    assert hasattr(app, "__file__"), "app must be a package, not a namespace or shadowed module"
+
+    import app.ui_components
+    import app.charts
+    assert hasattr(app.ui_components, "DEMO_COMPLAINT_EXAMPLES")
+    assert hasattr(app.charts, "create_baseline_comparison_chart")
+
+
+def test_app_script_execution_isolated():
+    """Verify python app/app.py executes without ModuleNotFoundError when app is in sys.path."""
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, "app/app.py"],
+        cwd=str(ROOT_DIR),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"app.py execution failed: {result.stderr}"
+    assert "ModuleNotFoundError" not in result.stderr
