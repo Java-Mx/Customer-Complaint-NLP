@@ -8,6 +8,7 @@ and comprehensive statistical model evaluation.
 """
 
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -15,6 +16,8 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
+
+logger = logging.getLogger(__name__)
 
 import joblib
 import numpy as np
@@ -28,6 +31,7 @@ from src.vectorization import (
     fit_transform_corpus,
     fit_transform_tfidf,
     transform_word_char,
+    get_top_active_features,
 )
 from src.similarity import find_similar_complaints, compute_cosine_similarity
 from src.classification import (
@@ -152,8 +156,10 @@ def load_trained_model():
             c_vec = joblib.load(c_vec_path) if c_vec_path.exists() else None
             vec = (w_vec, c_vec) if c_vec is not None else w_vec
             return clf, vec
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to deserialize model artifacts: %s", e)
+    else:
+        logger.info("Model artifacts not present at %s or %s", model_path, w_vec_path)
 
     return None, None
 
@@ -249,6 +255,7 @@ section = st.sidebar.radio(
     "Select Module",
     [
         "System Architecture",
+        "LIVE Complaint Analysis",
         "CFPB Live API & Data Explorer",
         "Model Evaluation & Diagnostics",
         "Error Analysis",
@@ -360,6 +367,275 @@ if section == "System Architecture":
         ("10. Taxonomy-Aware Classification Analysis", "Complete", "0d49099"),
     ]
     st.table(pd.DataFrame(milestones, columns=["Milestone", "Status", "Git Commit"]))
+
+
+# ----------------------------------------------------------------------
+# SECTION: LIVE COMPLAINT ANALYSIS
+# ----------------------------------------------------------------------
+
+elif section == "LIVE Complaint Analysis":
+    st.subheader("LIVE Complaint Analysis")
+    st.markdown(
+        """
+        Interactive demonstration of the trained classical NLP pipeline on unseen customer complaints.
+        Evaluates supervised categorization and historical lexical similarity in real time without large language models.
+        """
+    )
+
+    example_complaints = {
+        "Credit Card Dispute": (
+            "I noticed multiple unauthorized transactions and hidden fees charged to my credit card statement "
+            "without my permission. I contacted customer service immediately to dispute the charges, but the bank "
+            "refused to credit my account."
+        ),
+        "Debt Collection Harassment": (
+            "A debt collection agency has been calling my workplace repeatedly and contacting my family members "
+            "regarding an alleged medical debt that was already settled in 2021. They refuse to provide written debt verification."
+        ),
+        "Mortgage Servicing Issue": (
+            "My mortgage loan was transferred to a new servicer, and they failed to apply my monthly payments "
+            "to the principal balance. They also miscalculated my escrow account resulting in an erroneous late fee."
+        ),
+    }
+
+    with st.expander("Demonstration Examples (Optional)", expanded=False):
+        st.caption(
+            "Demonstration Only: Select an example to populate the input box. "
+            "These examples are for interactive evaluation and are not test set records."
+        )
+        demo_cols = st.columns(len(example_complaints))
+        for i, (demo_title, demo_text) in enumerate(example_complaints.items()):
+            with demo_cols[i]:
+                if st.button(f"Load {demo_title}", key=f"btn_live_demo_{i}"):
+                    st.session_state["live_complaint_text"] = demo_text
+                    st.rerun()
+
+    if "live_complaint_text" not in st.session_state:
+        st.session_state["live_complaint_text"] = ""
+
+    complaint_input = st.text_area(
+        "Enter a customer complaint",
+        value=st.session_state["live_complaint_text"],
+        height=200,
+        help="Paste a complaint narrative that the trained model has not seen before.",
+        placeholder="Type or paste customer complaint text here...",
+        key="text_area_live_complaint"
+    )
+    # Synchronize manual text edits into session state
+    st.session_state["live_complaint_text"] = complaint_input
+
+    col_btn, _ = st.columns([1, 4])
+    with col_btn:
+        analyze_clicked = st.button("Analyze Complaint", type="primary")
+
+    if analyze_clicked:
+        if not complaint_input or not complaint_input.strip():
+            st.warning("Please enter a customer complaint narrative before analyzing.")
+            st.session_state["live_analyzed_data"] = None
+        else:
+            clf_model, vec_model = load_trained_model()
+            if clf_model is None or vec_model is None:
+                st.warning(
+                    "The trained classification model is not available. Please place the "
+                    "serialized model artifacts in the models/ directory."
+                )
+                st.session_state["live_analyzed_data"] = None
+            else:
+                clean_q = preprocess_text(complaint_input)
+                if not clean_q.strip():
+                    st.warning("The complaint contains only punctuation or stopwords and produced an empty preprocessed text.")
+                    st.session_state["live_analyzed_data"] = None
+                else:
+                    if isinstance(vec_model, tuple):
+                        w_vec, c_vec = vec_model[0], vec_model[1]
+                        X_q = transform_word_char(w_vec, c_vec, [clean_q])
+                    else:
+                        w_vec, c_vec = vec_model, None
+                        X_q = w_vec.transform([clean_q])
+
+                    pred_cat, conf = predict_complaint_category(
+                        model=clf_model,
+                        vectorizer=vec_model,
+                        narrative=complaint_input,
+                        preprocess=True
+                    )
+                    probabilities = predict_category_proba(clf_model, X_q)[0]
+
+                    st.session_state["live_analyzed_data"] = {
+                        "raw_complaint": complaint_input,
+                        "clean_text": clean_q,
+                        "pred_category": pred_cat,
+                        "confidence": conf,
+                        "probabilities": probabilities,
+                        "classes": clf_model.classes_,
+                        "feature_dim": X_q.shape[1],
+                        "active_nnz": X_q.nnz,
+                        "is_composite": c_vec is not None,
+                    }
+
+    # Render analysis results if available
+    analyzed_data = st.session_state.get("live_analyzed_data")
+    if analyzed_data is not None and analyzed_data.get("raw_complaint") == complaint_input:
+        clf_model, vec_model = load_trained_model()
+        w_vec = vec_model[0] if isinstance(vec_model, tuple) else vec_model
+        c_vec = vec_model[1] if isinstance(vec_model, tuple) else None
+
+        st.markdown("---")
+        st.markdown("### Prediction Result")
+
+        pcol1, pcol2 = st.columns([2, 1])
+        with pcol1:
+            st.markdown("#### Predicted Category")
+            st.subheader(analyzed_data["pred_category"])
+        with pcol2:
+            st.markdown("#### Model Confidence Score")
+            st.metric("Confidence", f"{analyzed_data['confidence']:.2%}")
+            st.caption("Derived from Logistic Regression softmax probabilities; reflects model confidence, not calibrated accuracy.")
+
+        # Top 5 category distribution
+        probs = analyzed_data["probabilities"]
+        classes = analyzed_data["classes"]
+        top5_indices = np.argsort(probs)[::-1][:5]
+
+        st.markdown("##### Top 5 Product Categories by Model Confidence")
+        for idx in top5_indices:
+            cat_label = classes[idx]
+            cat_prob = float(probs[idx])
+            st.write(f"- **{cat_label}**: `{cat_prob:.2%}`")
+            st.progress(min(max(cat_prob, 0.0), 1.0))
+
+        # Pipeline Trace
+        st.markdown("---")
+        with st.expander("How the complaint was processed (Pipeline Trace)", expanded=True):
+            st.markdown(
+                """
+                ```text
+                Raw Complaint
+                      ↓
+                Preprocessing (src.preprocessing.preprocess_text)
+                      ↓
+                Word + Character TF-IDF (Sparse CSR: 237,148 dimensions)
+                      ↓
+                Logistic Regression (class_weight='balanced')
+                      ↓
+                Predicted Category
+                ```
+                """
+            )
+            st.markdown("**The cleaned complaint is converted into a sparse TF-IDF representation.**")
+            tcol1, tcol2 = st.columns(2)
+            with tcol1:
+                st.markdown("**Original Raw Complaint:**")
+                st.text_area("Raw Text Display", value=analyzed_data["raw_complaint"], height=120, disabled=True, label_visibility="collapsed")
+            with tcol2:
+                st.markdown("**Preprocessed Text (`preprocess_text`):**")
+                st.text_area("Cleaned Text Display", value=analyzed_data["clean_text"], height=120, disabled=True, label_visibility="collapsed")
+
+        # TF-IDF Feature Summary
+        st.markdown("---")
+        st.markdown("### TF-IDF Feature Representation Summary")
+        rep_type = "Combined Word + Character TF-IDF" if analyzed_data["is_composite"] else "Word TF-IDF"
+        fcol1, fcol2, fcol3 = st.columns(3)
+        with fcol1:
+            st.metric("Feature Representation", rep_type)
+        with fcol2:
+            st.metric("Total Feature Dimension", f"{analyzed_data['feature_dim']:,}")
+        with fcol3:
+            st.metric("Active Non-Zero Features", f"{analyzed_data['active_nnz']:,}")
+
+        st.caption("Representation Type: Sparse CSR (`scipy.sparse.csr_matrix`). Preserves memory efficiency without dense allocation.")
+
+        df_active = get_top_active_features(w_vec, c_vec, analyzed_data["clean_text"], top_n=10)
+        if not df_active.empty:
+            st.markdown("##### Highest-Weighted Active Features in Complaint")
+            disp_active = df_active.rename(columns={
+                "feature": "Active Feature (N-gram)",
+                "type": "N-gram Type",
+                "weight": "TF-IDF Weight"
+            })
+            disp_active["TF-IDF Weight"] = disp_active["TF-IDF Weight"].apply(lambda v: f"{v:.4f}")
+            st.table(disp_active)
+
+        # Top Similar Historical Complaints
+        st.markdown("---")
+        st.markdown("### Top Similar Historical CFPB Complaints")
+        st.markdown(
+            """
+            ```text
+            Complaint TF-IDF Vector
+                      ↓
+            Cosine Similarity (against indexed historical CFPB corpus)
+                      ↓
+            Top-K Similar Historical Complaints
+            ```
+            """
+        )
+        st.caption(
+            "Note on Representation Consistency (Option A): Classification employs the 237,148-dimensional "
+            "Word + Character TF-IDF representation, whereas lexical similarity search operates over the "
+            "pre-indexed Word TF-IDF historical complaints corpus to guarantee rapid sparse cosine retrieval."
+        )
+
+        df_corpus, fitted_sim_vec, corpus_matrix = build_indexed_corpus(nrows=500)
+        if df_corpus.empty or fitted_sim_vec is None or corpus_matrix is None:
+            st.info("Historical CFPB complaint corpus is not available for similarity retrieval.")
+        else:
+            with st.spinner("Computing sparse cosine similarities against indexed CFPB corpus..."):
+                sim_results = find_similar_complaints(
+                    query_text=complaint_input,
+                    vectorizer=fitted_sim_vec,
+                    corpus_matrix=corpus_matrix,
+                    df_corpus=df_corpus,
+                    top_k=7,
+                    preprocess=True
+                )
+
+            # Exclude self-matches
+            filtered_matches = []
+            clean_q = analyzed_data["clean_text"]
+            for _, row in sim_results.iterrows():
+                row_text = str(row.get("complaint_text", ""))
+                row_score = float(row.get("similarity_score", 0.0))
+                if row_score > 0.9999 and (row_text.strip() == complaint_input.strip() or preprocess_text(row_text) == clean_q):
+                    continue
+                filtered_matches.append(row)
+                if len(filtered_matches) == 5:
+                    break
+
+            if not filtered_matches:
+                st.info("No distinct historical complaints retrieved above similarity threshold.")
+            else:
+                st.markdown("#### Retrieved Historical Complaints (Ranked by Cosine Similarity)")
+                for rank, match in enumerate(filtered_matches, 1):
+                    c_id = match.get("complaint_id", "N/A")
+                    c_cat = match.get("category", "General")
+                    c_score = float(match.get("similarity_score", 0.0))
+                    c_text = str(match.get("complaint_text", ""))
+
+                    with st.container():
+                        st.markdown(
+                            f"**{rank}. Category:** `{c_cat}` | **Cosine Similarity:** `{c_score:.4f}` | **Complaint ID:** `{c_id}`"
+                        )
+                        snippet = c_text[:220].replace("\n", " ") + ("..." if len(c_text) > 220 else "")
+                        st.write(f"> {snippet}")
+                        with st.expander(f"View Full Historical Narrative (ID: {c_id})"):
+                            st.write(c_text)
+                        st.divider()
+
+        # Academic Footnote
+        st.markdown("---")
+        st.markdown("#### What This Demonstrates")
+        st.markdown(
+            """
+            This demonstration uses the same classical NLP pipeline evaluated in the project.
+            The complaint is cleaned and tokenized, represented using TF-IDF, classified with
+            Logistic Regression, and compared against historical CFPB complaints using cosine similarity.
+
+            **Academic Methodology Notice:**
+            - **Classical Statistical NLP:** Operates strictly on statistical n-gram token co-occurrences and linear decision boundaries. No large language models (LLMs), pretrained semantic embeddings, or external generative APIs are used for inference.
+            - **Confidence vs. Accuracy:** The confidence score reflects the Logistic Regression normalized softmax distribution over 18 product classes. It does not indicate individual prediction correctness or calibrated probability.
+            """
+        )
 
 
 # ----------------------------------------------------------------------

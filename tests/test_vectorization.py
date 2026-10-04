@@ -9,11 +9,13 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 from src.vectorization import (
     create_vectorizer,
+    create_char_vectorizer,
     build_tfidf_vectorizer,
     fit_tfidf,
     transform_tfidf,
     fit_transform_tfidf,
     fit_transform_corpus,
+    get_top_active_features,
 )
 
 
@@ -171,3 +173,45 @@ class TestInputHandlingAndErrors:
         single_doc = "credit card payment"
         transformed = transform_tfidf(vec, single_doc)
         assert transformed.shape == (1, len(vec.vocabulary_))
+
+
+class TestTopActiveFeatures:
+    """Tests for extracting active query TF-IDF features."""
+
+    def test_top_active_features_word_and_char(self, sample_corpus):
+        w_vec = create_vectorizer(ngram_range=(1, 2), min_df=1)
+        c_vec = create_char_vectorizer(ngram_range=(3, 4), min_df=1)
+        fit_tfidf(w_vec, sample_corpus)
+        fit_tfidf(c_vec, sample_corpus)
+
+        df_feat = get_top_active_features(w_vec, c_vec, "credit card dispute", top_n=5)
+        assert isinstance(df_feat, pd.DataFrame)
+        assert not df_feat.empty
+        assert len(df_feat) <= 5
+        assert list(df_feat.columns) == ["feature", "type", "weight"]
+        # Must be sorted descending
+        weights = df_feat["weight"].tolist()
+        assert weights == sorted(weights, reverse=True)
+        # Should contain both word and char types if matched
+        assert set(df_feat["type"]).issubset({"Word n-gram", "Character n-gram"})
+
+    def test_top_active_features_word_only(self, sample_corpus):
+        w_vec = create_vectorizer(ngram_range=(1, 2), min_df=1)
+        fit_tfidf(w_vec, sample_corpus)
+
+        df_feat = get_top_active_features(w_vec, None, "unauthorized fee", top_n=3)
+        assert not df_feat.empty
+        assert (df_feat["type"] == "Word n-gram").all()
+
+    def test_top_active_features_empty_text(self, sample_corpus):
+        w_vec = create_vectorizer(ngram_range=(1, 2), min_df=1)
+        fit_tfidf(w_vec, sample_corpus)
+
+        df_empty = get_top_active_features(w_vec, None, "   ", top_n=5)
+        assert df_empty.empty
+        assert list(df_empty.columns) == ["feature", "type", "weight"]
+
+    def test_top_active_features_unfitted_raises_error(self):
+        w_vec = create_vectorizer()
+        with pytest.raises(NotFittedError):
+            get_top_active_features(w_vec, None, "some text", top_n=5)

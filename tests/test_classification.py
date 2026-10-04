@@ -274,6 +274,20 @@ class TestSingleComplaintPipeline:
         with pytest.raises(TypeError):
             predict_complaint_category(clf, fitted_vec, None)
 
+    def test_predict_complaint_category_composite_vectorizers(self, sample_text_corpus):
+        """predict_complaint_category seamlessly handles (word_vec, char_vec) vectorizer tuple."""
+        from src.vectorization import create_char_vectorizer, fit_transform_word_char
+        w_vec = create_vectorizer(ngram_range=(1, 2), min_df=1)
+        c_vec = create_char_vectorizer(ngram_range=(3, 4), min_df=1)
+        w_vec, c_vec, X_comb = fit_transform_word_char(w_vec, c_vec, sample_text_corpus["text"])
+        clf = train_logistic_regression(X_comb, sample_text_corpus["category"])
+
+        query_text = "I have an unauthorized charge on my credit card statement"
+        pred_cat, conf = predict_complaint_category(clf, (w_vec, c_vec), query_text)
+        assert isinstance(pred_cat, str)
+        assert pred_cat == "Credit Card"
+        assert 0.0 <= conf <= 1.0
+
 
 class TestDataSplittingAndPersistence:
     """Test suite for train/test partition and model serialization."""

@@ -19,7 +19,7 @@ Architectural Design:
 
 from __future__ import annotations
 
-from typing import Any, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 from scipy.sparse import csr_matrix, hstack, issparse, spmatrix
@@ -386,3 +386,65 @@ def transform_word_char(
     X_word = word_vec.transform(validated_texts)
     X_char = char_vec.transform(validated_texts)
     return combine_sparse_matrices(X_word, X_char)
+
+
+def get_top_active_features(
+    word_vec: TfidfVectorizer,
+    char_vec: Optional[TfidfVectorizer],
+    text: str,
+    top_n: int = 10
+) -> pd.DataFrame:
+    """Extract highest-weighted active TF-IDF features for preprocessed text.
+
+    Parameters
+    ----------
+    word_vec : TfidfVectorizer
+        Fitted word-level vectorizer.
+    char_vec : Optional[TfidfVectorizer]
+        Fitted character-level vectorizer (or None for word-only).
+    text : str
+        Preprocessed complaint text.
+    top_n : int, default=10
+        Maximum number of top features to return.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with columns ['feature', 'type', 'weight'] sorted descending.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return pd.DataFrame(columns=["feature", "type", "weight"])
+
+    check_is_fitted(word_vec)
+
+    active_items: List[Dict[str, Any]] = []
+
+    # Word features
+    X_word = word_vec.transform([text])
+    if X_word.nnz > 0:
+        w_names = word_vec.get_feature_names_out()
+        for idx, val in zip(X_word.indices, X_word.data):
+            active_items.append({
+                "feature": str(w_names[idx]),
+                "type": "Word n-gram",
+                "weight": float(val)
+            })
+
+    # Character features
+    if char_vec is not None:
+        check_is_fitted(char_vec)
+        X_char = char_vec.transform([text])
+        if X_char.nnz > 0:
+            c_names = char_vec.get_feature_names_out()
+            for idx, val in zip(X_char.indices, X_char.data):
+                active_items.append({
+                    "feature": str(c_names[idx]),
+                    "type": "Character n-gram",
+                    "weight": float(val)
+                })
+
+    if not active_items:
+        return pd.DataFrame(columns=["feature", "type", "weight"])
+
+    active_items.sort(key=lambda x: x["weight"], reverse=True)
+    return pd.DataFrame(active_items[:top_n])

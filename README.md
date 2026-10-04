@@ -129,8 +129,8 @@ Customer-Complaint-NLP/
 │
 ├── tests/
 │   ├── __init__.py
-│   ├── test_cfpb_api.py              # Tests for CFPB API integration (13 tests)
-│   ├── test_classification.py        # Tests for classifier training & inference (25 tests)
+│   ├── test_cfpb_api.py              # Tests for CFPB API integration (16 tests)
+│   ├── test_classification.py        # Tests for classifier training & inference (26 tests)
 │   ├── test_data_loader.py           # Tests for dataset loading & validation (12 tests)
 │   ├── test_error_analysis.py        # Tests for error analysis infrastructure (35 tests)
 │   ├── test_evaluation.py            # Tests for evaluation metrics & validation (16 tests)
@@ -138,7 +138,7 @@ Customer-Complaint-NLP/
 │   ├── test_preprocessing.py         # Tests for preprocessing routines (19 tests)
 │   ├── test_similarity.py            # Tests for cosine similarity search (30 tests)
 │   ├── test_taxonomy.py              # Tests for taxonomy mapping & assertions (14 tests)
-│   └── test_vectorization.py         # Tests for TF-IDF feature extraction (15 tests)
+│   └── test_vectorization.py         # Tests for TF-IDF feature extraction (19 tests)
 │
 ├── scripts/
 │   ├── analyze_taxonomy.py           # Audits category support, baseline metrics & candidate groups
@@ -194,7 +194,7 @@ Customer-Complaint-NLP/
 ## Usage
 
 ### Running Tests
-Execute the full test suite (**190 tests passed**) via pytest:
+Execute the full test suite (**198 tests passed**) via pytest:
 ```bash
 python -m pytest -v
 ```
@@ -204,6 +204,16 @@ Launch the Streamlit web dashboard:
 ```bash
 streamlit run app/app.py
 ```
+
+The interactive application includes:
+- **LIVE Complaint Analysis**: Type or paste any unseen customer complaint narrative to immediately obtain the predicted financial product category, model confidence score, pipeline trace (original vs. preprocessed text), active TF-IDF feature breakdown, and top-5 historically similar complaints retrieved via cosine similarity.
+- **CFPB Live API & Data Explorer**: Live Elasticsearch querying of the official CFPB Search API v1 and interactive exploration of the local 25,000-record dataset.
+- **Model Evaluation & Diagnostics**: Performance metrics, confusion matrices, and controlled benchmark comparisons.
+- **Error Analysis**: Confusion pairs and confidence distribution breakdown on the 5,000-record holdout test set.
+- **Taxonomy Analysis**: Conservative (11 categories) and Broad (10 categories) taxonomy formulation audits and retraining decompositions.
+- **Cosine Similarity Retrieval**: Independent similarity query engine against indexed historical complaints.
+- **Complaint Categorisation**: Batch and interactive supervised categorization.
+- **Text Preprocessing & TF-IDF**: Interactive stage-by-stage tokenization and n-gram inspector.
 
 ### Running Systematic Model Experiments
 Run the model evaluation and selection pipeline across all 30+ validation configurations:
