@@ -4,7 +4,15 @@ Provides clean academic styling, rectangular button navigation, live demo workfl
 and model insight visualizations without altering underlying NLP methodologies.
 """
 
+import sys
+from pathlib import Path
 from typing import Dict, Any, Optional
+
+# Ensure project root is on sys.path before importing from src or app
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -14,13 +22,22 @@ from src.preprocessing import preprocess_text
 from src.vectorization import transform_word_char, get_top_active_features
 from src.similarity import find_similar_complaints
 from src.classification import predict_complaint_category, predict_category_proba
-from app.charts import (
-    create_baseline_comparison_chart,
-    create_taxonomy_comparison_chart,
-    create_class_distribution_chart,
-    create_per_category_f1_chart,
-    create_confusion_pairs_chart,
-)
+try:
+    from app.charts import (
+        create_baseline_comparison_chart,
+        create_taxonomy_comparison_chart,
+        create_class_distribution_chart,
+        create_per_category_f1_chart,
+        create_confusion_pairs_chart,
+    )
+except (ImportError, ModuleNotFoundError):
+    from charts import (
+        create_baseline_comparison_chart,
+        create_taxonomy_comparison_chart,
+        create_class_distribution_chart,
+        create_per_category_f1_chart,
+        create_confusion_pairs_chart,
+    )
 
 # Realistic demonstration complaint examples (6 domain-standard + 3 intentionally ambiguous for viva defense)
 DEMO_COMPLAINT_EXAMPLES: Dict[str, Dict[str, str]] = {

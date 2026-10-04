@@ -52,18 +52,32 @@ from src.evaluation import (
     plot_confusion_matrix,
 )
 from src.cfpb_api import fetch_cfpb_data, test_api_connection
-from app.ui_components import (
-    apply_custom_styles,
-    render_sidebar_navigation,
-    render_live_demo_header,
-    render_example_complaint_buttons,
-    render_prediction_result,
-    render_pipeline_trace,
-    render_highest_weighted_features,
-    render_similarity_results,
-    render_what_this_demonstrates,
-    render_model_insights_section,
-)
+try:
+    from app.ui_components import (
+        apply_custom_styles,
+        render_sidebar_navigation,
+        render_live_demo_header,
+        render_example_complaint_buttons,
+        render_prediction_result,
+        render_pipeline_trace,
+        render_highest_weighted_features,
+        render_similarity_results,
+        render_what_this_demonstrates,
+        render_model_insights_section,
+    )
+except (ImportError, ModuleNotFoundError):
+    from ui_components import (
+        apply_custom_styles,
+        render_sidebar_navigation,
+        render_live_demo_header,
+        render_example_complaint_buttons,
+        render_prediction_result,
+        render_pipeline_trace,
+        render_highest_weighted_features,
+        render_similarity_results,
+        render_what_this_demonstrates,
+        render_model_insights_section,
+    )
 
 
 def get_status_icon_svg(status: str) -> str:
