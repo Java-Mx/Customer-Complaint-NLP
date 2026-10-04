@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 import requests
 
-from src.cfpb_api import CFPBClient, DEFAULT_API_URL, fetch_cfpb_data
+from src.cfpb_api import CFPBClient, DEFAULT_API_URL, fetch_cfpb_data, test_api_connection as check_api_conn
 from src.data_loader import get_complaints_data, load_dataset_from_api
 
 
@@ -136,6 +136,22 @@ class TestFetchComplaintsPagination:
         assert len(df) == 1
         assert df.iloc[0]["complaint_id"] == "1"
 
+    @patch.object(CFPBClient, "fetch_raw_complaints")
+    def test_fetch_complaints_with_product_filter(self, mock_fetch_raw, sample_api_raw_hit):
+        """Passing product filter forwards product in request params."""
+        mock_fetch_raw.return_value = {
+            "hits": {
+                "total": {"value": 1, "relation": "eq"},
+                "hits": [sample_api_raw_hit]
+            }
+        }
+        client = CFPBClient()
+        df = client.fetch_complaints(max_records=5, product="Mortgage")
+        assert len(df) == 1
+        assert mock_fetch_raw.called
+        call_kwargs = mock_fetch_raw.call_args[1]
+        assert call_kwargs.get("extra_params") == {"product": "Mortgage"}
+
     def test_invalid_max_records_raises_value_error(self):
         """max_records <= 0 raises ValueError."""
         client = CFPBClient()
@@ -177,6 +193,18 @@ class TestCFPBErrorHandling:
         client = CFPBClient(session=mock_session)
         with pytest.raises(ValueError, match="JSON"):
             client.fetch_raw_complaints()
+
+    @patch("src.cfpb_api.CFPBClient.fetch_raw_complaints")
+    def test_test_api_connection_success(self, mock_raw):
+        """test_api_connection returns True when API responds with hits."""
+        mock_raw.return_value = {"hits": {"total": {"value": 1}, "hits": []}}
+        assert check_api_conn() is True
+
+    @patch("src.cfpb_api.CFPBClient.fetch_raw_complaints")
+    def test_test_api_connection_failure(self, mock_raw):
+        """test_api_connection returns False when API raises exception."""
+        mock_raw.side_effect = requests.exceptions.Timeout("Timed out")
+        assert check_api_conn() is False
 
     @patch("src.cfpb_api.CFPBClient.fetch_complaints")
     def test_unified_data_loader_dispatcher(self, mock_fetch):

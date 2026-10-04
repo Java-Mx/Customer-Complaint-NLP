@@ -48,14 +48,57 @@ from src.evaluation import (
 )
 from src.cfpb_api import fetch_cfpb_data, test_api_connection
 
+def get_status_icon_svg(status: str) -> str:
+    """Return inline SVG for clean, lightweight visual status indication without emojis.
+
+    Parameters
+    ----------
+    status : str
+        'check' (green tick), 'cross' (red X), 'warning' (amber alert), or 'info' (neutral dot).
+
+    Returns
+    -------
+    str
+        Inline SVG HTML markup string.
+    """
+    if status == "check":
+        return (
+            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" '
+            'fill="none" stroke="#2e7d32" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" '
+            'style="vertical-align: -2px; margin-right: 6px;"><polyline points="20 6 9 17 4 12"/></svg>'
+        )
+    elif status == "cross":
+        return (
+            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" '
+            'fill="none" stroke="#c62828" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" '
+            'style="vertical-align: -2px; margin-right: 6px;"><line x1="18" y1="6" x2="6" y2="18"/>'
+            '<line x1="6" y1="6" x2="18" y2="18"/></svg>'
+        )
+    elif status == "warning":
+        return (
+            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" '
+            'fill="none" stroke="#f57c00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" '
+            'style="vertical-align: -2px; margin-right: 6px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>'
+            '<line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+        )
+    elif status == "info":
+        return (
+            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" '
+            'fill="none" stroke="#0288d1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" '
+            'style="vertical-align: -2px; margin-right: 6px;"><circle cx="12" cy="12" r="10"/>'
+            '<line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+        )
+    return ""
+
+
 # Page Configuration
 st.set_page_config(
     page_title="Customer Complaint Similarity & Categorisation",
-    page_icon="📋",
+    page_icon=None,
     layout="wide"
 )
 
-st.title("📋 Customer Complaint Similarity & Categorisation")
+st.title("Customer Complaint Similarity & Categorisation")
 st.markdown(
     """
     **Academic NLP Project** analyzing real consumer complaints from the 
@@ -222,24 +265,24 @@ st.sidebar.subheader("System Status")
 # Check API status
 api_online = test_api_connection()
 if api_online:
-    st.sidebar.success("CFPB Search API: Online (HTTP 200)")
+    st.sidebar.markdown(f"{get_status_icon_svg('check')} **CFPB Search API:** Online (HTTP 200)", unsafe_allow_html=True)
 else:
-    st.sidebar.warning("CFPB Search API: Offline / Rate Limited")
+    st.sidebar.markdown(f"{get_status_icon_svg('warning')} **CFPB Search API:** Offline / Rate Limited", unsafe_allow_html=True)
 
 # Check Local Dataset
 data_csv = ROOT_DIR / "data" / "complaints.csv"
 if data_csv.exists():
-    st.sidebar.info(f"Local Dataset: {data_csv.name} (25,000 records)")
+    st.sidebar.markdown(f"{get_status_icon_svg('check')} **Local Dataset:** {data_csv.name} (25,000 records)", unsafe_allow_html=True)
 else:
-    st.sidebar.error("Local Dataset: complaints.csv Not Found")
+    st.sidebar.markdown(f"{get_status_icon_svg('cross')} **Local Dataset:** complaints.csv Not Found", unsafe_allow_html=True)
 
 # Check Model Status
 clf_loaded, vec_loaded = load_trained_model()
 if clf_loaded is not None:
     feat_desc = "Combined Word+Char" if isinstance(vec_loaded, tuple) else "Word TF-IDF"
-    st.sidebar.success(f"Model: {type(clf_loaded).__name__} ({feat_desc})")
+    st.sidebar.markdown(f"{get_status_icon_svg('check')} **Model:** {type(clf_loaded).__name__} ({feat_desc})", unsafe_allow_html=True)
 else:
-    st.sidebar.warning("Model: Not loaded")
+    st.sidebar.markdown(f"{get_status_icon_svg('warning')} **Model:** Not loaded", unsafe_allow_html=True)
 
 
 # ----------------------------------------------------------------------
@@ -254,7 +297,7 @@ if section == "System Architecture":
                             CFPB Consumer Complaints
                       (Local CSV or Live CFPB Search API)
                                       ↓
-                              Data Preprocessing
+                               Data Preprocessing
                  (Lowercasing, Redaction Cleaning, Tokenization,
                        Number Normalization, Stopwords)
                                       ↓
@@ -284,19 +327,19 @@ if section == "System Architecture":
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown("### 🔍 Real-World CFPB Data")
+        st.markdown("### Real-World CFPB Data")
         st.write(
             "Trained and evaluated on the authentic CFPB Consumer Complaint Database (25,000 complaints). "
             "Partitioned with zero data leakage: 20,000 training pool and 5,000 untouched test records."
         )
     with col2:
-        st.markdown("### ⚡ Word + Character Subwords")
+        st.markdown("### Word + Character Subwords")
         st.write(
             "Fuses word n-grams with character n-grams (`char_wb`, 3–5) to robustly capture compound terms, "
             "prefixes, suffixes, financial acronyms, and terminology variations in sparse CSR format."
         )
     with col3:
-        st.markdown("### 📈 Measured Performance Gain")
+        st.markdown("### Measured Performance Gain")
         st.write(
             "Class-balanced optimization elevated **Macro F1 from 34.15% to 50.56%** (+16.41 pp gain) "
             "and **Accuracy to 69.56%** on the controlled 5,000-record holdout test set."
@@ -324,7 +367,7 @@ if section == "System Architecture":
 # ----------------------------------------------------------------------
 
 elif section == "CFPB Live API & Data Explorer":
-    st.subheader("🌐 Official CFPB API Integration & Data Explorer")
+    st.subheader("Official CFPB API Integration & Data Explorer")
     st.markdown(
         """
         Query real consumer financial complaints in real time directly from the official 
@@ -380,35 +423,42 @@ elif section == "CFPB Live API & Data Explorer":
         if "live_cfpb_df" in st.session_state:
             df_live = st.session_state["live_cfpb_df"]
             if df_live.empty:
-                st.warning("No records returned matching the query criteria.")
+                st.markdown(f"{get_status_icon_svg('warning')} **No records returned matching the query criteria.**", unsafe_allow_html=True)
             else:
-                st.success(f"Successfully retrieved {len(df_live)} live complaint records from CFPB Search API.")
+                st.markdown(
+                    f"{get_status_icon_svg('check')} **Successfully retrieved {len(df_live)} live complaint records from CFPB Search API.**",
+                    unsafe_allow_html=True,
+                )
 
                 display_cols = [c for c in ["complaint_id", "category", "company", "date_received", "state", "issue"] if c in df_live.columns]
                 st.dataframe(df_live[display_cols], use_container_width=True)
 
                 st.markdown("#### Inspect Live Record Details")
-                selected_id = st.selectbox("Select Complaint ID to View:", df_live["complaint_id"].tolist())
-                sel_row = df_live[df_live["complaint_id"] == selected_id].iloc[0]
+                comp_ids = df_live["complaint_id"].tolist()
+                if comp_ids:
+                    selected_id = st.selectbox("Select Complaint ID to View:", comp_ids)
+                    matched_rows = df_live[df_live["complaint_id"] == selected_id]
+                    if not matched_rows.empty:
+                        sel_row = matched_rows.iloc[0]
 
-                c1, c2, c3 = st.columns(3)
-                with c1:
-                    st.metric("Product Category", sel_row.get("category", "N/A"))
-                with c2:
-                    st.metric("Company", sel_row.get("company", "N/A"))
-                with c3:
-                    st.metric("Date Received", str(sel_row.get("date_received", "N/A"))[:10])
+                        c1, c2, c3 = st.columns(3)
+                        with c1:
+                            st.metric("Product Category", sel_row.get("category", "N/A"))
+                        with c2:
+                            st.metric("Company", sel_row.get("company", "N/A"))
+                        with c3:
+                            st.metric("Date Received", str(sel_row.get("date_received", "N/A"))[:10])
 
-                narrative_text = str(sel_row.get("text", "")).strip()
-                if narrative_text and narrative_text != "nan":
-                    st.markdown("**Consumer Complaint Narrative:**")
-                    st.text_area("", value=narrative_text, height=140, disabled=True)
-                else:
-                    st.info(
-                        "Note: Consumer narrative is not public for this recent record. Under CFPB publication policies "
-                        "(August 2026 update), newer complaint narratives undergo FOIA redaction review before public release. "
-                        "Categorical metadata (Product, Company, Date, State, Issue) is fully available."
-                    )
+                        narrative_text = str(sel_row.get("text", "")).strip()
+                        if narrative_text and narrative_text != "nan":
+                            st.markdown("**Consumer Complaint Narrative:**")
+                            st.text_area("", value=narrative_text, height=140, disabled=True)
+                        else:
+                            st.info(
+                                "Note: Consumer narrative is not public for this recent record. Under CFPB publication policies "
+                                "(August 2026 update), newer complaint narratives undergo FOIA redaction review before public release. "
+                                "Categorical metadata (Product, Company, Date, State, Issue) is fully available."
+                            )
 
     else:
         st.markdown("#### Local CFPB Dataset Overview")
@@ -435,7 +485,7 @@ elif section == "CFPB Live API & Data Explorer":
 # ----------------------------------------------------------------------
 
 elif section == "Model Evaluation & Diagnostics":
-    st.subheader("📊 Model Evaluation & Systematic Improvements")
+    st.subheader("Model Evaluation & Systematic Improvements")
     st.markdown(
         """
         Rigorous comparative evaluation between the **Initial Baseline Model** ($N=600$ test split) and the 
@@ -530,7 +580,7 @@ elif section == "Model Evaluation & Diagnostics":
 # ----------------------------------------------------------------------
 
 elif section == "Error Analysis":
-    st.subheader("🔎 Classification Error Analysis")
+    st.subheader("Classification Error Analysis")
     st.markdown(
         """
         Comprehensive diagnostic analysis of the **final trained model** evaluated on the untouched
@@ -616,7 +666,7 @@ elif section == "Error Analysis":
                 The baseline uses the original Word TF-IDF + no class weighting configuration.
                 Only this comparison is a methodologically valid apples-to-apples contrast.
 
-                > ⚠️ The historical baseline (from an earlier 600-record experiment) used a
+                > **Note:** The historical baseline (from an earlier 600-record experiment) used a
                 > different split size and 17 categories — it is documented separately and
                 > cannot be compared directly with these numbers.
                 """
@@ -713,7 +763,7 @@ elif section == "Error Analysis":
                 The table below summarises the **predicted class probability** distribution
                 for correctly classified and incorrectly classified predictions separately.
 
-                > ⚠️ LogisticRegression probability outputs are **not calibrated** unless
+                > **Note:** LogisticRegression probability outputs are **not calibrated** unless
                 > a calibration procedure (e.g., `CalibratedClassifierCV`) has been applied.
                 > These probabilities should be interpreted as model confidence scores only.
                 """
@@ -779,23 +829,26 @@ elif section == "Error Analysis":
                 st.info("Error examples not available.")
             else:
                 pair_options = list(examples.keys())
-                selected_pair = st.selectbox("Select confusion pair:", pair_options)
-                if selected_pair:
-                    pair_examples = examples[selected_pair]
-                    st.markdown(f"**{len(pair_examples)} example(s) for: `{selected_pair}`**")
-                    for i, ex in enumerate(pair_examples, 1):
-                        with st.expander(
-                            f"Example {i} — Test Index {ex['complaint_index']}: "
-                            f"Actual `{ex['actual_category']}` → Predicted `{ex['predicted_category']}`"
-                        ):
-                            st.markdown(f"- **Actual:** `{ex['actual_category']}`")
-                            st.markdown(f"- **Predicted:** `{ex['predicted_category']}`")
-                            st.markdown("**Complaint Text (truncated):**")
-                            st.text_area(
-                                "", value=ex["complaint_text_truncated"],
-                                height=150, disabled=True,
-                                key=f"ex_{selected_pair}_{i}",
-                            )
+                if not pair_options:
+                    st.info("No confusion pair options available.")
+                else:
+                    selected_pair = st.selectbox("Select confusion pair:", pair_options)
+                    if selected_pair and selected_pair in examples:
+                        pair_examples = examples[selected_pair]
+                        st.markdown(f"**{len(pair_examples)} example(s) for: `{selected_pair}`**")
+                        for i, ex in enumerate(pair_examples, 1):
+                            with st.expander(
+                                f"Example {i} — Test Index {ex['complaint_index']}: "
+                                f"Actual `{ex['actual_category']}` → Predicted `{ex['predicted_category']}`"
+                            ):
+                                st.markdown(f"- **Actual:** `{ex['actual_category']}`")
+                                st.markdown(f"- **Predicted:** `{ex['predicted_category']}`")
+                                st.markdown("**Complaint Text (truncated):**")
+                                st.text_area(
+                                    "", value=ex["complaint_text_truncated"],
+                                    height=150, disabled=True,
+                                    key=f"ex_{selected_pair}_{i}",
+                                    )
 
 
 
@@ -804,7 +857,7 @@ elif section == "Error Analysis":
 # ----------------------------------------------------------------------
 
 elif section == "Taxonomy Analysis":
-    st.subheader("🏛️ Taxonomy-Aware Complaint Classification Analysis")
+    st.subheader("Taxonomy-Aware Complaint Classification Analysis")
     st.markdown(
         """
         Investigating whether CFPB complaint classification difficulty is driven by linguistic ambiguity or by 
@@ -862,7 +915,7 @@ elif section == "Taxonomy Analysis":
             st.dataframe(comp_df, use_container_width=True)
 
             st.info(
-                "💡 **Key Observation:** Both normalized formulations produce higher Accuracy (~81-82%) and Macro F1 (~68-73%). "
+                "**Key Observation:** Both normalized formulations produce higher Accuracy (~81-82%) and Macro F1 (~68-73%). "
                 "Crucially, this is **not** evidence that the normalized models are inherently superior classifiers; rather, "
                 "it demonstrates that ~40% of baseline errors stemmed from requiring the model to separate historically synonymous labels."
             )
@@ -872,7 +925,7 @@ elif section == "Taxonomy Analysis":
             tax_choice = st.radio("Select Taxonomy Variant:", ["v1 Conservative (11 Categories)", "v2 Broad (10 Categories)"], horizontal=True)
             chosen_cfg = cfg_v1 if "v1" in tax_choice else cfg_v2
 
-            if chosen_cfg:
+            if chosen_cfg and "mapping" in chosen_cfg:
                 st.markdown(f"**Description:** {chosen_cfg.get('description', '')}")
                 mapping_rows = []
                 for orig, entry in chosen_cfg["mapping"].items():
@@ -907,7 +960,8 @@ elif section == "Taxonomy Analysis":
 
             st.markdown("##### Detailed Breakdown by Merged Category Group")
             loss_rows = []
-            info_dict = (cfg_v1 if "v1" in loss_choice else cfg_v2).get("information_loss", {})
+            cfg_active = cfg_v1 if "v1" in loss_choice else cfg_v2
+            info_dict = cfg_active.get("information_loss", {}) if cfg_active else {}
             for grp, details in active_loss["merged_groups"].items():
                 loss_rows.append({
                     "Normalized Target": grp,
@@ -980,7 +1034,7 @@ elif section == "Taxonomy Analysis":
 
 elif section == "Cosine Similarity Retrieval":
 
-    st.subheader("🔍 Cosine Similarity Nearest-Neighbor Complaint Retrieval")
+    st.subheader("Cosine Similarity Nearest-Neighbor Complaint Retrieval")
     st.markdown(
         """
         Find historically similar customer complaints by projecting a grievance into the learned 
@@ -1010,9 +1064,13 @@ elif section == "Cosine Similarity Retrieval":
                 f"ID {row['complaint_id']} [{row['category']}]: {str(row['text'])[:75]}...": row["text"]
                 for _, row in df_corpus.head(25).iterrows()
             }
-            selected_label = st.selectbox("Select Real Complaint from Loaded Corpus:", list(complaint_opts.keys()))
-            query_narrative = complaint_opts[selected_label]
-            st.text_area("Selected Query Text:", value=query_narrative, height=120, disabled=True)
+            if not complaint_opts:
+                st.warning("No complaints available in indexed corpus. Please enter custom grievance text below.")
+                query_narrative = ""
+            else:
+                selected_label = st.selectbox("Select Real Complaint from Loaded Corpus:", list(complaint_opts.keys()))
+                query_narrative = complaint_opts.get(selected_label, "")
+                st.text_area("Selected Query Text:", value=query_narrative, height=120, disabled=True)
         else:
             query_narrative = st.text_area(
                 "Enter Customer Grievance Narrative:",
@@ -1071,7 +1129,7 @@ elif section == "Cosine Similarity Retrieval":
 # ----------------------------------------------------------------------
 
 elif section == "Complaint Categorisation":
-    st.subheader("🎯 Supervised Complaint Categorisation")
+    st.subheader("Supervised Complaint Categorisation")
     st.markdown(
         """
         Classify customer complaint narratives into CFPB financial product categories 
@@ -1102,10 +1160,19 @@ elif section == "Complaint Categorisation":
                 f"ID {r['complaint_id']} [Actual: {r['category']}]: {str(r['text'])[:75]}...": (r["text"], r["category"])
                 for _, r in df_sample.head(20).iterrows()
             }
-            chosen_key = st.selectbox("Select Real Complaint to Test:", list(complaint_map.keys()))
-            input_narrative, actual_cat = complaint_map[chosen_key]
-            st.text_area("Selected Complaint Narrative:", value=input_narrative, height=120, disabled=True)
-            st.info(f"**Actual Ground Truth Category:** `{actual_cat}`")
+            if not complaint_map:
+                st.warning("Local dataset is not available at data/complaints.csv. Please switch to custom complaint narrative.")
+                input_narrative = ""
+                actual_cat = None
+            else:
+                chosen_key = st.selectbox("Select Real Complaint to Test:", list(complaint_map.keys()))
+                if chosen_key and chosen_key in complaint_map:
+                    input_narrative, actual_cat = complaint_map[chosen_key]
+                    st.text_area("Selected Complaint Narrative:", value=input_narrative, height=120, disabled=True)
+                    st.info(f"Actual Ground Truth Category: {actual_cat}")
+                else:
+                    input_narrative = ""
+                    actual_cat = None
         else:
             input_narrative = st.text_area(
                 "Enter Customer Complaint Narrative:",
@@ -1143,9 +1210,15 @@ elif section == "Complaint Categorisation":
                     st.success(f"### Predicted Product Category:\n**{pred_category}**")
                     if actual_cat:
                         if pred_category.strip().lower() == actual_cat.strip().lower():
-                            st.info("✅ Prediction MATCHES ground truth category!")
+                            st.markdown(
+                                f"{get_status_icon_svg('check')} **Prediction matches ground truth category.**",
+                                unsafe_allow_html=True,
+                            )
                         else:
-                            st.warning(f"⚠️ Model predicted `{pred_category}`, actual ground truth was `{actual_cat}`.")
+                            st.markdown(
+                                f"{get_status_icon_svg('cross')} **Mismatch:** Model predicted `{pred_category}`, actual ground truth was `{actual_cat}`.",
+                                unsafe_allow_html=True,
+                            )
                 with col2:
                     st.metric(conf_label, f"{confidence:.2%}")
 
@@ -1163,7 +1236,7 @@ elif section == "Complaint Categorisation":
 # ----------------------------------------------------------------------
 
 elif section == "Text Preprocessing & TF-IDF":
-    st.subheader("🔬 Text Preprocessing & TF-IDF Feature Inspector")
+    st.subheader("Text Preprocessing & TF-IDF Feature Inspector")
     st.markdown(
         """
         Inspect each stage of the classical text preprocessing pipeline and examine 

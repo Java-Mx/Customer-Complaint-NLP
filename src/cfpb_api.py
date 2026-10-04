@@ -188,13 +188,30 @@ class CFPBClient:
         }
         return normalized
 
+    def test_connection(self) -> bool:
+        """Check if the CFPB API endpoint is accessible and responding.
+
+        Returns
+        -------
+        bool
+            True if endpoint responds with valid JSON payload, False otherwise.
+        """
+        try:
+            data = self.fetch_raw_complaints(size=1, has_narrative=False)
+            return isinstance(data, dict) and "hits" in data
+        except Exception as err:
+            logger.debug(f"CFPB API connection test failed: {err}")
+            return False
+
     def fetch_complaints(
         self,
         max_records: int = 50,
         page_size: int = 25,
         search_term: Optional[str] = None,
+        product: Optional[str] = None,
         has_narrative: bool = True,
-        drop_empty_narratives: bool = False
+        drop_empty_narratives: bool = False,
+        extra_params: Optional[Dict[str, Any]] = None
     ) -> pd.DataFrame:
         """Retrieve and normalize complaint records from the CFPB API across pages.
 
@@ -206,12 +223,16 @@ class CFPBClient:
             Number of records to fetch per pagination request.
         search_term : Optional[str], optional
             Optional keyword or query string to filter complaints.
+        product : Optional[str], optional
+            Optional product filter category string.
         has_narrative : bool, default=True
             Whether to request complaints with narratives.
         drop_empty_narratives : bool, default=False
             If True, discards records whose narrative text is empty.
             Note: As of August 2026, the live CFPB database ceased publishing new
             narratives. Older historical narratives exist in the archive.
+        extra_params : Optional[Dict[str, Any]], optional
+            Additional query parameters forwarded to the API.
 
         Returns
         -------
@@ -230,13 +251,18 @@ class CFPBClient:
         records: List[Dict[str, Any]] = []
         offset = 0
 
+        request_extras = dict(extra_params) if extra_params else {}
+        if product and str(product).strip():
+            request_extras["product"] = str(product).strip()
+
         while len(records) < max_records:
             current_size = min(page_size, max_records - len(records))
             raw_response = self.fetch_raw_complaints(
                 size=current_size,
                 frm=offset,
                 search_term=search_term,
-                has_narrative=has_narrative
+                has_narrative=has_narrative,
+                extra_params=request_extras if request_extras else None
             )
 
             hits = raw_response.get("hits", {}).get("hits", [])
@@ -273,6 +299,7 @@ def fetch_cfpb_data(
     base_url: str = DEFAULT_API_URL,
     timeout: float = DEFAULT_TIMEOUT,
     search_term: Optional[str] = None,
+    product: Optional[str] = None,
     drop_empty_narratives: bool = False
 ) -> pd.DataFrame:
     """Convenience functional interface to fetch normalized CFPB complaints.
@@ -287,6 +314,8 @@ def fetch_cfpb_data(
         Request timeout.
     search_term : Optional[str], optional
         Search keyword.
+    product : Optional[str], optional
+        Optional product filter category string.
     drop_empty_narratives : bool, default=False
         Whether to drop records with empty narratives.
 
@@ -299,5 +328,28 @@ def fetch_cfpb_data(
     return client.fetch_complaints(
         max_records=max_records,
         search_term=search_term,
+        product=product,
         drop_empty_narratives=drop_empty_narratives
     )
+
+
+def test_api_connection(
+    base_url: str = DEFAULT_API_URL,
+    timeout: float = 5.0
+) -> bool:
+    """Test connectivity to the official CFPB API endpoint.
+
+    Parameters
+    ----------
+    base_url : str, default=DEFAULT_API_URL
+        The base endpoint URL to test.
+    timeout : float, default=5.0
+        Request timeout in seconds.
+
+    Returns
+    -------
+    bool
+        True if the API responds with a valid payload, False on failure/timeout.
+    """
+    client = CFPBClient(base_url=base_url, timeout=timeout)
+    return client.test_connection()
