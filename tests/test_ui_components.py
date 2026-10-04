@@ -91,15 +91,40 @@ def test_app_package_structure():
 
 
 def test_app_script_execution_isolated():
-    """Verify python app/app.py executes without ModuleNotFoundError when app is in sys.path."""
+    """Verify python app/app.py executes without ModuleNotFoundError across execution contexts."""
     import subprocess
     import sys
-    result = subprocess.run(
+
+    # 1. Direct script execution from project root
+    res_root = subprocess.run(
         [sys.executable, "app/app.py"],
         cwd=str(ROOT_DIR),
         capture_output=True,
         text=True,
         timeout=30,
     )
-    assert result.returncode == 0, f"app.py execution failed: {result.stderr}"
-    assert "ModuleNotFoundError" not in result.stderr
+    assert res_root.returncode == 0, f"app.py execution from root failed: {res_root.stderr}"
+    assert "ModuleNotFoundError" not in res_root.stderr
+
+    # 2. Direct script execution from app/ directory
+    res_app_dir = subprocess.run(
+        [sys.executable, "app.py"],
+        cwd=str(ROOT_DIR / "app"),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert res_app_dir.returncode == 0, f"app.py execution from app/ failed: {res_app_dir.stderr}"
+    assert "ModuleNotFoundError" not in res_app_dir.stderr
+
+    # 3. Module execution (-m app.app) from project root
+    res_module = subprocess.run(
+        [sys.executable, "-m", "app.app"],
+        cwd=str(ROOT_DIR),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert res_module.returncode == 0, f"python -m app.app execution failed: {res_module.stderr}"
+    assert "ModuleNotFoundError" not in res_module.stderr
+
