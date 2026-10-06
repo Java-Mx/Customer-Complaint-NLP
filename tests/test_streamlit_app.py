@@ -120,6 +120,11 @@ def test_apptest_live_demo_lifecycle_and_actions():
     assert analyzed["feature_dim"] == 237148
     assert analyzed["active_nnz"] > 0
 
+    metric_labels = [m.label for m in at.metric]
+    assert "Total Feature Dimension" in metric_labels
+    assert "Active Non-Zero Features" in metric_labels
+    assert "Feature Representation" not in metric_labels  # Preserved as wide card, not truncated metric
+
     # 3. Click CLEAR button
     clear_btn = [b for b in at.button if b.label == "CLEAR"][0]
     clear_btn.click().run(timeout=30)
@@ -133,3 +138,30 @@ def test_apptest_live_demo_lifecycle_and_actions():
     assert not at.exception
     assert len(at.warning) >= 1
     assert any("Please enter a customer complaint" in w.value for w in at.warning)
+
+
+def test_apptest_no_static_graph_images_rendered():
+    """Verify that dashboard renders interactive Plotly charts and does not use st.image for charts."""
+    from streamlit.testing.v1 import AppTest
+
+    at = AppTest.from_file("app/app.py", default_timeout=30)
+    at.run()
+    assert not at.exception
+
+    # LIVE DEMO should have interactive plotly charts in Model Insights section
+    assert len(at.get("plotly_chart")) >= 1
+    assert len(at.get("image")) == 0
+
+    # Switch to MODEL EVALUATION
+    eval_btn = [b for b in at.button if b.key and "nav_btn_model_evaluation" in b.key][0]
+    eval_btn.click().run()
+    assert not at.exception
+    assert len(at.get("plotly_chart")) >= 1
+    assert len(at.get("image")) == 0
+
+    # Switch to ERROR ANALYSIS
+    err_btn = [b for b in at.button if b.key and "nav_btn_error_analysis" in b.key][0]
+    err_btn.click().run()
+    assert not at.exception
+    assert len(at.get("plotly_chart")) >= 1
+    assert len(at.get("image")) == 0

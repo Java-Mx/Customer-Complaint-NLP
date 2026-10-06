@@ -65,6 +65,7 @@ try:
         render_what_this_demonstrates,
         render_model_insights_section,
     )
+    from app.charts import create_confusion_matrix_heatmap
 except (ImportError, ModuleNotFoundError):
     from ui_components import (
         apply_custom_styles,
@@ -78,6 +79,7 @@ except (ImportError, ModuleNotFoundError):
         render_what_this_demonstrates,
         render_model_insights_section,
     )
+    from charts import create_confusion_matrix_heatmap
 
 
 def get_status_icon_svg(status: str) -> str:
@@ -628,11 +630,12 @@ elif selected_section == "MODEL EVALUATION":
 
         with tab2:
             st.markdown("#### Multi-Class Confusion Matrix (N = 5,000 Test Records)")
-            cm_img_path = ROOT_DIR / "results" / "confusion_matrix.png"
-            if cm_img_path.exists():
-                st.image(str(cm_img_path), caption="Holdout Test Set Confusion Matrix (N=5,000 Unseen Complaints)", use_container_width=True)
+            _, _, per_cat_df_cm, err_pairs_df_cm = load_error_analysis_data()
+            if err_pairs_df_cm is not None and per_cat_df_cm is not None:
+                fig_cm = create_confusion_matrix_heatmap(err_pairs_df_cm, per_cat_df_cm)
+                st.plotly_chart(fig_cm, use_container_width=True, config={"displayModeBar": True, "displaylogo": False})
             else:
-                st.info("Confusion matrix plot file not found.")
+                st.info("Confusion matrix evaluation data not found.")
 
         with tab3:
             st.markdown("#### Full Systematic Experiment Comparison Table")
@@ -725,9 +728,9 @@ elif selected_section == "ERROR ANALYSIS":
                     "Char analyzer", "Total feature dimensions",
                 ],
                 "Value": [
-                    cfg["type"], cfg["solver"], cfg["C"], cfg["class_weight"],
-                    cfg["max_iter"], str(cfg["word_ngram_range"]),
-                    str(cfg["char_ngram_range"]), cfg["char_analyzer"],
+                    str(cfg["type"]), str(cfg["solver"]), str(cfg["C"]), str(cfg["class_weight"]),
+                    str(cfg["max_iter"]), str(cfg["word_ngram_range"]),
+                    str(cfg["char_ngram_range"]), str(cfg["char_analyzer"]),
                     f"{cfg['total_features']:,}",
                 ],
             }
@@ -780,12 +783,11 @@ elif selected_section == "ERROR ANALYSIS":
 
             st.markdown("---")
             st.markdown("#### 18 × 18 Confusion Matrix Heatmap")
-            cm_img = ROOT_DIR / "results" / "confusion_matrix.png"
-            if cm_img.exists():
-                st.image(str(cm_img), caption="Confusion Matrix — Final Model on N=5,000 Test Set",
-                         use_container_width=True)
+            if err_pairs_df is not None and per_cat_df is not None:
+                fig_cm = create_confusion_matrix_heatmap(err_pairs_df, per_cat_df)
+                st.plotly_chart(fig_cm, use_container_width=True, config={"displayModeBar": True, "displaylogo": False})
             else:
-                st.info("Confusion matrix image not found at results/confusion_matrix.png.")
+                st.info("Confusion matrix evaluation data not found.")
 
         with tab_percat:
             st.markdown("#### Per-Category Performance on the 5,000-Record Test Set")

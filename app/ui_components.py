@@ -13,7 +13,6 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -29,6 +28,7 @@ try:
         create_class_distribution_chart,
         create_per_category_f1_chart,
         create_confusion_pairs_chart,
+        create_confusion_matrix_heatmap,
     )
 except (ImportError, ModuleNotFoundError):
     from charts import (
@@ -37,6 +37,7 @@ except (ImportError, ModuleNotFoundError):
         create_class_distribution_chart,
         create_per_category_f1_chart,
         create_confusion_pairs_chart,
+        create_confusion_matrix_heatmap,
     )
 
 # Realistic demonstration complaint examples (6 domain-standard + 3 intentionally ambiguous for viva defense)
@@ -134,6 +135,50 @@ DEMO_COMPLAINT_EXAMPLES: Dict[str, Dict[str, str]] = {
 }
 
 
+def render_status_tick(status: str = "success") -> str:
+    """Return inline SVG check icon or non-success state for status indicators.
+
+    Parameters
+    ----------
+    status : str
+        'success' (green checkmark), 'warning' (amber indicator),
+        or 'error' / 'offline' (coral indicator).
+
+    Returns
+    -------
+    str
+        Accessible inline SVG markup.
+    """
+    if status == "success":
+        return (
+            '<svg class="status-svg" viewBox="0 0 16 16" width="14" height="14" fill="none" '
+            'stroke="#22c55e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" '
+            'aria-label="Success" role="img">'
+            '<polyline points="3 8.5 6.5 12 13 4.5"/>'
+            '</svg>'
+        )
+    elif status == "warning":
+        return (
+            '<svg class="status-svg" viewBox="0 0 16 16" width="14" height="14" fill="none" '
+            'stroke="#f59e0b" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" '
+            'aria-label="Warning" role="img">'
+            '<circle cx="8" cy="8" r="6.5"/>'
+            '<line x1="8" y1="5" x2="8" y2="8.5"/>'
+            '<line x1="8" y1="11" x2="8.01" y2="11"/>'
+            '</svg>'
+        )
+    else:
+        return (
+            '<svg class="status-svg" viewBox="0 0 16 16" width="14" height="14" fill="none" '
+            'stroke="#ef4444" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round" '
+            'aria-label="Error or Offline" role="img">'
+            '<circle cx="8" cy="8" r="6.5"/>'
+            '<line x1="5.5" y1="5.5" x2="10.5" y2="10.5"/>'
+            '<line x1="10.5" y1="5.5" x2="5.5" y2="10.5"/>'
+            '</svg>'
+        )
+
+
 def apply_custom_styles() -> None:
     """Inject polished, presentation-ready CSS for academic NLP demonstration."""
     css = """
@@ -223,34 +268,91 @@ def apply_custom_styles() -> None:
         background-color: #26354a !important;
     }
 
-    /* System Status Box */
-    .status-container {
+    /* System Status Card */
+    .status-card {
         background-color: #0f172a;
         border: 1px solid #1e293b;
-        border-radius: 6px;
-        padding: 0.65rem 0.8rem;
+        border-radius: 8px;
+        padding: 0.85rem 0.95rem;
         font-size: 0.78rem;
-        line-height: 1.5;
+        line-height: 1.45;
         color: #cbd5e1;
-        margin-top: 0.6rem;
+        margin-top: 0.85rem;
+        box-sizing: border-box;
+        width: 100%;
     }
-    .status-heading {
-        font-size: 0.74rem;
+    .status-header {
+        font-size: 0.72rem;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.07em;
+        letter-spacing: 0.08em;
         color: #94a3b8;
-        margin-bottom: 0.45rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        padding-bottom: 0.25rem;
+        padding-bottom: 0.45rem;
+        margin-bottom: 0.65rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
-    .status-row {
-        margin-bottom: 0.3rem;
+    .status-list {
         display: flex;
-        align-items: baseline;
+        flex-direction: column;
+        gap: 0.65rem;
     }
-    .status-row:last-child {
-        margin-bottom: 0;
+    .status-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.55rem;
+    }
+    .status-icon-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-top: 2px;
+        flex-shrink: 0;
+    }
+    .status-svg {
+        display: block;
+    }
+    .status-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.08rem;
+        min-width: 0;
+    }
+    .status-label {
+        font-size: 0.77rem;
+        font-weight: 600;
+        color: #f1f5f9;
+        line-height: 1.25;
+    }
+    .status-sub {
+        font-size: 0.72rem;
+        color: #94a3b8;
+        line-height: 1.35;
+        word-break: normal;
+    }
+
+    /* Feature Representation Card */
+    .feature-rep-card {
+        background-color: rgba(30, 41, 59, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 6px;
+        padding: 0.75rem 1rem;
+        margin-top: 0.55rem;
+        margin-bottom: 0.55rem;
+    }
+    .feature-rep-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #94a3b8;
+        margin-bottom: 0.25rem;
+    }
+    .feature-rep-val {
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: #f8fafc;
+        line-height: 1.4;
+        word-break: normal;
     }
 
     /* Prediction result card */
@@ -378,55 +480,71 @@ def render_sidebar_navigation(
             args=(label,),
         )
 
-    # Compact System Status
-    st.sidebar.markdown(
-        """
-        <div class="status-container">
-            <div class="status-heading">SYSTEM STATUS</div>
-        """,
-        unsafe_allow_html=True,
-    )
-
+    # Complete System Status Card
     api_str = "Online (HTTP 200)" if api_online else "Offline / Rate Limited"
-    api_mark = "✓" if api_online else "!"
-    api_color = "#4ade80" if api_online else "#f87171"
+    api_status = "success" if api_online else "error"
 
     if data_csv_exists and dataset_records:
-        data_str = f"complaints.csv ({dataset_records:,} records)"
+        data_str = f"complaints.csv<br>({dataset_records:,} records)"
+        data_status = "success"
     elif data_csv_exists:
-        data_str = "complaints.csv (Available)"
+        data_str = "complaints.csv<br>(Available)"
+        data_status = "success"
     else:
         data_str = "complaints.csv Not Found"
-    data_mark = "✓" if data_csv_exists else "✗"
-    data_color = "#4ade80" if data_csv_exists else "#f87171"
+        data_status = "error"
 
     if clf_loaded is not None:
         raw_name = type(clf_loaded).__name__
         model_str = "Logistic Regression" if raw_name == "LogisticRegression" else raw_name
-        model_mark = "✓"
-        model_color = "#4ade80"
+        model_status = "success"
     else:
         model_str = "Not Loaded"
-        model_mark = "!"
-        model_color = "#fbbf24"
+        model_status = "warning"
 
     if vec_loaded is not None:
-        feat_str = "Combined Word + Character TF-IDF" if isinstance(vec_loaded, tuple) else "Word TF-IDF"
-        feat_mark = "✓"
-        feat_color = "#4ade80"
+        feat_str = "Combined Word +<br>Character TF-IDF" if isinstance(vec_loaded, tuple) else "Word TF-IDF"
+        rep_status = "success"
     else:
         feat_str = "Not Loaded"
-        feat_mark = "!"
-        feat_color = "#fbbf24"
+        rep_status = "warning"
 
-    status_html = f"""
-        <div class="status-row"><span style="color: {api_color}; font-weight: bold; margin-right: 6px;">{api_mark}</span><span><strong>CFPB Search API:</strong> {api_str}</span></div>
-        <div class="status-row"><span style="color: {data_color}; font-weight: bold; margin-right: 6px;">{data_mark}</span><span><strong>Local Dataset:</strong> {data_str}</span></div>
-        <div class="status-row"><span style="color: {model_color}; font-weight: bold; margin-right: 6px;">{model_mark}</span><span><strong>Model:</strong> {model_str}</span></div>
-        <div class="status-row"><span style="color: {feat_color}; font-weight: bold; margin-right: 6px;">{feat_mark}</span><span><strong>Representation:</strong> {feat_str}</span></div>
+    status_card_html = f"""
+    <div class="status-card">
+        <div class="status-header">SYSTEM STATUS</div>
+        <div class="status-list">
+            <div class="status-item">
+                <div class="status-icon-wrap">{render_status_tick(api_status)}</div>
+                <div class="status-info">
+                    <div class="status-label">CFPB Search API</div>
+                    <div class="status-sub">{api_str}</div>
+                </div>
+            </div>
+            <div class="status-item">
+                <div class="status-icon-wrap">{render_status_tick(data_status)}</div>
+                <div class="status-info">
+                    <div class="status-label">Local Dataset</div>
+                    <div class="status-sub">{data_str}</div>
+                </div>
+            </div>
+            <div class="status-item">
+                <div class="status-icon-wrap">{render_status_tick(model_status)}</div>
+                <div class="status-info">
+                    <div class="status-label">Model</div>
+                    <div class="status-sub">{model_str}</div>
+                </div>
+            </div>
+            <div class="status-item">
+                <div class="status-icon-wrap">{render_status_tick(rep_status)}</div>
+                <div class="status-info">
+                    <div class="status-label">Representation</div>
+                    <div class="status-sub">{feat_str}</div>
+                </div>
+            </div>
+        </div>
     </div>
     """
-    st.sidebar.markdown(status_html, unsafe_allow_html=True)
+    st.sidebar.markdown(status_card_html, unsafe_allow_html=True)
 
     return st.session_state["active_module"]
 
@@ -586,14 +704,27 @@ def render_pipeline_trace(analyzed_data: Dict[str, Any]) -> None:
         st.text_area("Preprocessed Narrative", value=analyzed_data["clean_text"], height=130, disabled=True, key="disp_clean")
 
     st.markdown("#### TF-IDF Feature Representation Summary")
-    rep_type = "Combined Word + Character TF-IDF" if analyzed_data["is_composite"] else "Word TF-IDF"
-    fcol1, fcol2, fcol3 = st.columns(3)
-    with fcol1:
-        st.metric("Feature Representation", rep_type)
-    with fcol2:
-        st.metric("Total Feature Dimension", f"{analyzed_data['feature_dim']:,}")
-    with fcol3:
-        st.metric("Active Non-Zero Features", f"{analyzed_data['active_nnz']:,}")
+    rep_type = "Combined Word + Character TF-IDF" if analyzed_data.get("is_composite", True) else "Word TF-IDF"
+    feature_dim = analyzed_data.get("feature_dim", 237148)
+    active_nnz = analyzed_data.get("active_nnz", 0)
+
+    # ROW 1: Compact metric cards
+    r1_col1, r1_col2 = st.columns(2)
+    with r1_col1:
+        st.metric("Total Feature Dimension", f"{feature_dim:,}")
+    with r1_col2:
+        st.metric("Active Non-Zero Features", f"{active_nnz:,}")
+
+    # ROW 2: Wide horizontal information card for Feature Representation
+    st.markdown(
+        f"""
+        <div class="feature-rep-card">
+            <div class="feature-rep-label">FEATURE REPRESENTATION</div>
+            <div class="feature-rep-val">{rep_type}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.caption("Representation: Sparse CSR (`scipy.sparse.csr_matrix`). Preserves memory efficiency without dense allocation.")
 
@@ -732,8 +863,7 @@ def render_model_insights_section(
         )
         if bvsi_df is not None:
             fig_base = create_baseline_comparison_chart(bvsi_df)
-            st.pyplot(fig_base, clear_figure=True)
-            plt.close(fig_base)
+            st.plotly_chart(fig_base, use_container_width=True, config={"displayModeBar": True, "displaylogo": False})
             st.caption(
                 "Key Finding: Class balancing elevated Macro F1 from 34.15% to 50.56% (+16.41 pp, a 48% relative gain) "
                 "while maintaining overall accuracy at 69.56% on the controlled holdout test set."
@@ -749,8 +879,7 @@ def render_model_insights_section(
         )
         if tax_df is not None:
             fig_tax = create_taxonomy_comparison_chart(tax_df)
-            st.pyplot(fig_tax, clear_figure=True)
-            plt.close(fig_tax)
+            st.plotly_chart(fig_tax, use_container_width=True, config={"displayModeBar": True, "displaylogo": False})
             st.caption(
                 "Key Finding: Normalizing historical synonymous categories (v1 Conservative: 11 classes; v2 Broad: 10 classes) "
                 "elevates Accuracy to 81.5% - 82.3% and Macro F1 to 63.4% - 66.6%. Over 39.9% of baseline errors are "
@@ -764,8 +893,7 @@ def render_model_insights_section(
         st.markdown("Severe class imbalance across the 18 CFPB product verticals motivates class-frequency balancing.")
         if dist_df is not None:
             fig_dist = create_class_distribution_chart(dist_df)
-            st.pyplot(fig_dist, clear_figure=True)
-            plt.close(fig_dist)
+            st.plotly_chart(fig_dist, use_container_width=True, config={"displayModeBar": True, "displaylogo": False})
             st.caption(
                 "The top 3 categories (Debt collection, Credit reporting, Mortgage) comprise over 56% of all complaints, "
                 "while 7 minority categories each account for less than 1% of the corpus."
@@ -778,8 +906,7 @@ def render_model_insights_section(
         st.markdown("18-category test performance under balanced Logistic Regression and Combined Word+Char TF-IDF.")
         if per_cat_df is not None:
             fig_f1 = create_per_category_f1_chart(per_cat_df)
-            st.pyplot(fig_f1, clear_figure=True)
-            plt.close(fig_f1)
+            st.plotly_chart(fig_f1, use_container_width=True, config={"displayModeBar": True, "displaylogo": False})
             st.caption(
                 "Mortgage (92.2%), Student loan (85.0%), and Debt collection (83.6%) achieve the highest F1 scores, "
                 "benefiting from distinct vocabulary and substantial support."
@@ -792,8 +919,7 @@ def render_model_insights_section(
         st.markdown("Most frequent confusion pairs on the 5,000-record holdout test set (1,522 total errors).")
         if err_df is not None:
             fig_pairs = create_confusion_pairs_chart(err_df, top_n=10)
-            st.pyplot(fig_pairs, clear_figure=True)
-            plt.close(fig_pairs)
+            st.plotly_chart(fig_pairs, use_container_width=True, config={"displayModeBar": True, "displaylogo": False})
             st.caption(
                 "Notice that the top 2 confusion pairs (314 combined errors) occur between Credit reporting variants, "
                 "and pairs 3-4 (139 combined errors) occur between Credit card variants."

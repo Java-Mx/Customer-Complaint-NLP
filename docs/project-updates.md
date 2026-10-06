@@ -144,7 +144,7 @@ This document serves as the permanent chronological engineering, modeling, and r
 ---
 
 ## Milestone 12: Presentation-Ready Academic Live Demo & Visual Analytics
-- **Commit:** Current
+- **Commit:** `be9887c` (2026-09-21)
 - **Commit Message:** `feat: improve live demo interface and visual analytics`
 - **Scope & Changes:** Refactored the Streamlit web application (`app/app.py`, `app/ui_components.py`, `app/charts.py`) into a polished, presentation-ready academic NLP demo designed for university vivas and project defenses.
 - **NLP / ML User Experience Concepts:**
@@ -153,6 +153,26 @@ This document serves as the permanent chronological engineering, modeling, and r
   - **Interactive Demonstration Examples:** Provided 6 domain-standard CFPB product grievances alongside 3 intentionally ambiguous test cases illustrating linguistic overlap across product boundaries (Credit Card vs. Credit Reporting, Debt Collection vs. Identity Theft, Checking Overdraft vs. Payday Loan). Connected using Streamlit `on_click` callbacks to eliminate state collisions.
   - **End-to-End Pipeline Trace & Active Features:** Displayed original vs. preprocessed text, 237,148-dimensional Word+Char TF-IDF representation, active non-zero feature counts, and top active n-gram weights without dense allocation.
   - **Sparse Cosine Similarity Retrieval:** Retrieved top-5 historically similar CFPB complaints with cosine similarity scores, complaint IDs, and expandable narratives using the indexed Word TF-IDF corpus.
-  - **Integrated Empirical Model Insights:** Embedded publication-ready dark-theme charts for controlled baseline vs. improved models (Accuracy, Macro F1, Weighted F1), cross-taxonomy benchmarks, dataset class distributions across 18 product categories, per-category F1 scores, and top confusion pairs with non-GUI Agg backend rendering and figure lifecycle cleanup.
+  - **Integrated Empirical Model Insights:** Embedded publication-ready dark-theme charts for controlled baseline vs. improved models (Accuracy, Macro F1, Weighted F1), cross-taxonomy benchmarks, dataset class distributions across 18 product categories, per-category F1 scores, and top confusion pairs.
 - **Tests & Verification:** Added 5 chart tests (`tests/test_ui_charts.py`), 3 UI component and end-to-end inference tests (`tests/test_ui_components.py`), and 3 Streamlit AppTest and server integration tests (`tests/test_streamlit_app.py`) verifying headless startup, navigation, example button population, live inference, and clear actions. Total test suite reached **209 unit and integration tests** (all passing).
 
+---
+
+## Milestone 13: Interactive Plotly Visualizations, Non-Truncated Metric Cards & Inline SVG Status System
+- **Commit:** Current
+- **Commit Message:** `feat: interactive plotly visual analytics, card layout, and inline svg status card`
+- **Scope & Changes:** Enhanced Streamlit UI layout, visual hierarchy, and dashboard analytics:
+  - **TF-IDF Metric Card Hierarchy:** Re-architected representation cards into two distinct rows:
+    - Row 1: Compact metric cards for `Total Feature Dimension` (237,148) and dynamic `Active Non-Zero Features`.
+    - Row 2: Full-width horizontal info card for `FEATURE REPRESENTATION: Combined Word + Character TF-IDF`, completely eliminating text truncation on all screen resolutions, followed by a sparse CSR explanation caption.
+  - **Interactive Plotly Visualizations (Zero Static PNGs):** Eliminated all static `st.image` PNG renders across the entire dashboard. Replaced with fully interactive, dark-slate themed Plotly figures (`plotly.graph_objects`):
+    - Controlled Baseline vs. Improved Model (grouped bar chart with hover tooltips and exact score percentages).
+    - Cross-Taxonomy Formulation Comparison (Reference 18 vs. Conservative 11 vs. Broad 10).
+    - CFPB Dataset Class Distribution (horizontal bar chart across 18 product categories, $N=25,000$).
+    - Per-Category F1 Scores on 5,000-record holdout test set with support and precision/recall tooltips.
+    - Top Misclassification Confusion Pairs (horizontal bar chart showing error counts and percentage of actual class).
+    - Interactive 18×18 Multi-Class Confusion Matrix Heatmap (in both Model Evaluation and Error Analysis modules).
+  - **Consolidated System Status Card:** Enclosed the complete System Status section in a single rounded card container (`#0f172a`, border `#1e293b`) that expands dynamically with padding, preventing content clipping or boundary overflow.
+  - **Inline SVG Status Indicators:** Replaced Unicode checkmarks (`✓`, `✔`, `☑`) with accessible, reusable inline SVG check, warning, and error icons (`render_status_tick()`).
+  - **Runtime & Type Hardening:** Resolved multi-variable unpacking mismatch in Model Evaluation and variable scoping in Error Analysis; normalized mixed-type dictionary values to strings to prevent PyArrow serialization warnings.
+- **Tests & Verification:** Full test suite expanded to **215 tests** (`python -m pytest -v`), with 100% pass rate. Verified clean compilation via `compileall` and headless server startup with HTTP 200 responses.

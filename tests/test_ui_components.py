@@ -128,3 +128,32 @@ def test_app_script_execution_isolated():
     assert res_module.returncode == 0, f"python -m app.app execution failed: {res_module.stderr}"
     assert "ModuleNotFoundError" not in res_module.stderr
 
+
+def test_render_status_tick_svg():
+    """Verify render_status_tick produces valid inline SVG without unicode symbols."""
+    from app.ui_components import render_status_tick
+
+    for status, color in [("success", "#22c55e"), ("warning", "#f59e0b"), ("error", "#ef4444")]:
+        svg = render_status_tick(status)
+        assert svg.startswith("<svg")
+        assert svg.endswith("</svg>")
+        assert color in svg
+        # Ensure no unicode checkmark characters are present
+        assert "✓" not in svg
+        assert "✔" not in svg
+        assert "☑" not in svg
+
+
+def test_charts_module_has_all_required_functions():
+    """Verify app.charts exposes all interactive chart factories."""
+    import app.charts as ac
+    required_fns = [
+        "create_baseline_comparison_chart",
+        "create_taxonomy_comparison_chart",
+        "create_class_distribution_chart",
+        "create_per_category_f1_chart",
+        "create_confusion_pairs_chart",
+        "create_confusion_matrix_heatmap",
+    ]
+    for fn in required_fns:
+        assert hasattr(ac, fn), f"app.charts must define {fn}"

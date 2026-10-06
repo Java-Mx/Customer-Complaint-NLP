@@ -194,7 +194,7 @@ Customer-Complaint-NLP/
 ## Usage
 
 ### Running Tests
-Execute the full test suite (**209 tests passed**) via pytest:
+Execute the full test suite (**215 tests passed**) via pytest:
 ```bash
 python -m pytest -v
 ```
@@ -209,11 +209,12 @@ The interactive application features an academic NLP interface:
 - **LIVE Complaint Analysis (Opening Hero Module)**: Type or paste any unseen customer complaint narrative or select from authentic demonstration examples (including domain-standard and intentionally ambiguous viva boundary cases). Immediately inspects:
   - **Predicted Product Category & Confidence Score**: Displayed with top-5 class confidence distributions.
   - **Pipeline Trace**: Step-by-step transparency showing raw vs. cleaned text, Word+Char TF-IDF representation (237,148 sparse CSR dimensions), and active non-zero feature counts.
+  - **TF-IDF Representation Layout**: Row 1 compact metric cards (`Total Feature Dimension` and `Active Non-Zero Features`) and Row 2 full-width horizontal card (`Feature Representation: Combined Word + Character TF-IDF`) ensuring zero label truncation, with sparse CSR efficiency notes.
   - **Highest-Weighted Active Features**: Exact n-grams and learned TF-IDF weights extracted from the input narrative.
   - **Top Similar Historical CFPB Complaints**: Sparse cosine retrieval against indexed historical complaints with expandable narratives.
   - **What This Demonstrates**: Concise explanation of the 6 classical NLP pipeline stages (with zero reliance on LLMs or external generative APIs).
-  - **Model & Dataset Insights Dashboard**: Embedded dark-mode charts comparing controlled baseline vs. improved models (Accuracy, Macro F1, Weighted F1), cross-taxonomy benchmarks, dataset class distributions, 18-category F1 metrics, and top confusion pairs.
-- **Sidebar Navigation**: Clean rounded rectangular buttons replacing default radio controls, with compact real-time System Status (CFPB API health, local dataset, model, and representation).
+  - **Model & Dataset Insights Dashboard**: Embedded interactive Plotly charts (hover tooltips, zoom/pan, dark-slate theme, zero static PNGs) comparing controlled baseline vs. improved models (Accuracy, Macro F1, Weighted F1), cross-taxonomy benchmarks, dataset class distributions, 18-category F1 metrics, top confusion pairs, and 18×18 confusion matrix heatmaps.
+- **Sidebar Navigation**: Clean rounded rectangular buttons replacing default radio controls, with an enclosed System Status card featuring inline SVG check/cross/warning indicators.
 - **CFPB Live API & Data Explorer**: Live Elasticsearch querying of the official CFPB Search API v1 and interactive exploration of the local 25,000-record dataset.
 - **Model Evaluation & Diagnostics**: Performance metrics, confusion matrices, and controlled benchmark comparisons.
 - **Error Analysis**: Confusion pairs and confidence distribution breakdown on the 5,000-record holdout test set.
