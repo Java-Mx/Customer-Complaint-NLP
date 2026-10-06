@@ -623,7 +623,7 @@ elif selected_section == "MODEL EVALUATION":
                 {"Metric": "Macro Recall", "Initial Baseline": f"{base['macro_recall']:.4f}", "Improved Final Model": f"{improved['macro_recall']:.4f}", "Absolute Improvement": f"{improved['macro_recall'] - base['macro_recall']:+.4f}"},
                 {"Metric": "Weighted Precision", "Initial Baseline": f"{base['weighted_precision']:.4f}", "Improved Final Model": f"{improved['weighted_precision']:.4f}", "Absolute Improvement": f"{improved['weighted_precision'] - base['weighted_precision']:+.4f}"},
                 {"Metric": "Test Samples", "Initial Baseline": f"{base['samples']:,}", "Improved Final Model": f"{improved['test_samples']:,}", "Absolute Improvement": f"+{improved['test_samples'] - base['samples']:,} samples"},
-                {"Metric": "Feature Representation", "Initial Baseline": "Word TF-IDF (1,2)", "Improved Final Model": "Combined Word(1,2) + Char(3,5)", "Absolute Improvement": "Subword granularity"},
+                {"Metric": "Feature Representation", "Initial Baseline": "Word TF-IDF (1,2)", "Improved Final Model": "Combined Word(1,1) + Char(3,5)", "Absolute Improvement": "Subword granularity & unigram pruning"},
                 {"Metric": "Class Imbalance Strategy", "Initial Baseline": "None (Standard)", "Improved Final Model": "class_weight='balanced'", "Absolute Improvement": "Minority classes boosted"},
             ]
             st.table(pd.DataFrame(comp_table))
@@ -639,7 +639,7 @@ elif selected_section == "MODEL EVALUATION":
 
         with tab3:
             st.markdown("#### Full Systematic Experiment Comparison Table")
-            st.markdown("Results logged across 30+ validation configurations using identical training/validation splits:")
+            st.markdown("Results logged across 98 validation configurations across 7 search stages using identical training/validation splits:")
             if comparison_df is not None:
                 st.dataframe(
                     comparison_df.style.format({
@@ -1390,7 +1390,7 @@ elif selected_section == "SYSTEM ARCHITECTURE":
     with col2:
         st.markdown("### Word + Character Subwords")
         st.write(
-            "Fuses word n-grams with character n-grams (`char_wb`, 3–5) to robustly capture compound terms, "
+            "Fuses word unigrams with character n-grams (`char`, 3–5) to robustly capture compound terms, "
             "prefixes, suffixes, financial acronyms, and terminology variations in sparse CSR format."
         )
     with col3:

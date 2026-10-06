@@ -208,7 +208,7 @@ streamlit run app/app.py
 The interactive application features an academic NLP interface:
 - **LIVE Complaint Analysis (Opening Hero Module)**: Type or paste any unseen customer complaint narrative or select from authentic demonstration examples (including domain-standard and intentionally ambiguous viva boundary cases). Immediately inspects:
   - **Predicted Product Category & Confidence Score**: Displayed with top-5 class confidence distributions.
-  - **Pipeline Trace**: Step-by-step transparency showing raw vs. cleaned text, Word+Char TF-IDF representation (237,148 sparse CSR dimensions), and active non-zero feature counts.
+  - **Pipeline Trace**: Step-by-step transparency showing raw vs. cleaned text, Word+Char TF-IDF representation (114,493 sparse CSR dimensions), and active non-zero feature counts.
   - **TF-IDF Representation Layout**: Row 1 compact metric cards (`Total Feature Dimension` and `Active Non-Zero Features`) and Row 2 full-width horizontal card (`Feature Representation: Combined Word + Character TF-IDF`) ensuring zero label truncation, with sparse CSR efficiency notes.
   - **Highest-Weighted Active Features**: Exact n-grams and learned TF-IDF weights extracted from the input narrative.
   - **Top Similar Historical CFPB Complaints**: Sparse cosine retrieval against indexed historical complaints with expandable narratives.
@@ -225,7 +225,12 @@ The interactive application features an academic NLP interface:
 - **System Architecture**: Complete pipeline schematic and milestone tracking.
 
 ### Running Systematic Model Experiments
-Run the model evaluation and selection pipeline across all 30+ validation configurations:
+Run the 7-stage systematic model improvement pipeline across 98 validation configurations:
+```bash
+python scripts/run_model_improvement.py search   # Evaluate candidates on 16k train / 4k val split only
+python scripts/run_model_improvement.py final    # Retrain selected model on 20k pool, evaluate once on 5k test
+```
+Or run the historical 30-run grid search:
 ```bash
 python scripts/run_experiments.py
 ```
@@ -251,9 +256,9 @@ The supervised classification engine operates on a classical machine learning pi
 
 ### Architectural Innovations:
 1. **Word + Character Subword Fusion**:
-   - Fuses word n-grams (`ngram_range=(1, 2)`) with character n-grams within word boundaries (`analyzer="char_wb"`, `ngram_range=(3, 5)`).
+   - Fuses word unigrams (`ngram_range=(1, 1)`) with character n-grams (`analyzer="char"`, `ngram_range=(3, 5)`).
    - Subword character n-grams capture morphology, financial roots, prefixes/suffixes (e.g. *foreclos-*, *delinqu-*, *overcharg-*), acronyms (e.g. *APR*, *FCRA*, *CFPB*), and spelling variations.
-   - Combined representation stacked into a single sparse matrix via `scipy.sparse.hstack(..., format="csr")` spanning **237,148 sparse features** with zero dense memory allocation.
+   - Combined representation stacked into a single sparse matrix via `scipy.sparse.hstack(..., format="csr")` spanning **114,493 sparse features** (pruned from 237,148 by eliminating noisy word bigrams) with zero dense memory allocation.
 2. **Class Imbalance Mitigation**:
    - Severe category imbalance (ranging from 5,830 *Debt collection* complaints to rare minority classes) was resolved using `class_weight="balanced"`.
    - Adjusts loss penalization inversely proportional to class frequencies, directly resolving minority-class neglect.

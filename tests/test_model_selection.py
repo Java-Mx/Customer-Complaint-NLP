@@ -111,3 +111,41 @@ def test_experiment_script_split_protocol_is_disjoint():
     assert not (set(X_tr.index) & set(X_val.index))
     assert not ((set(X_tr.index) | set(X_val.index)) & set(X_test.index))
     assert len(X_tr) == 320 and len(X_val) == 80 and len(X_test) == 100
+
+
+def test_persisted_final_model_configuration():
+    """Verify that persisted models match winning spec (C=2, Word 1,1, Char 3,5, 114,493 dims)."""
+    import joblib
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    clf = joblib.load(root / "models" / "complaint_classifier.joblib")
+    w_vec = joblib.load(root / "models" / "tfidf_vectorizer.joblib")
+    c_vec = joblib.load(root / "models" / "char_vectorizer.joblib")
+
+    assert clf.C == 2.0
+    assert clf.class_weight == "balanced"
+    assert w_vec.ngram_range == (1, 1)
+    assert c_vec.ngram_range == (3, 5)
+    assert c_vec.analyzer == "char"
+    assert len(w_vec.vocabulary_) + len(c_vec.vocabulary_) == 114493
+
+
+def test_artifact_metrics_consistency_between_json_files():
+    """Verify final_evaluation_metrics.json, error_analysis_data.json, and test_metrics.json agree."""
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    final_m = json.loads((root / "results" / "final_evaluation_metrics.json").read_text(encoding="utf-8"))
+    ea_m = json.loads((root / "results" / "error_analysis_data.json").read_text(encoding="utf-8"))
+    test_m = json.loads((root / "results" / "model_improvement_test_metrics.json").read_text(encoding="utf-8"))
+
+    # Accuracy agreement
+    assert final_m["final_model"]["accuracy"] == pytest.approx(0.6982, abs=1e-4)
+    assert ea_m["improved_metrics"]["accuracy"] == pytest.approx(0.6982, abs=1e-4)
+    assert test_m["new_test"]["accuracy"] == pytest.approx(0.6982, abs=1e-4)
+
+    # Macro F1 agreement
+    assert final_m["final_model"]["macro_f1"] == pytest.approx(0.5088, abs=1e-4)
+    assert ea_m["improved_metrics"]["macro_f1"] == pytest.approx(0.5088, abs=1e-4)
+    assert test_m["new_test"]["macro_f1"] == pytest.approx(0.5088, abs=1e-4)
+

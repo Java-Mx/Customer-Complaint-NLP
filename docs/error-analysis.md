@@ -36,7 +36,9 @@ This document presents a comprehensive diagnostic analysis of the final trained 
 
 ---
 
-## 3. Final Model Configuration
+## 3. Reference Model Configuration (Diagnostic Baseline)
+
+> **Context Note:** Sections 3–5 document the reference balanced model (237,148 features, $C=1.0$) analyzed during Milestone 9 diagnostic error analysis. For the subsequent Milestone 14 model improvement experiments and the updated production model (114,493 features, $C=2.0$, Accuracy: **69.82%**, Macro F1: **50.88%**), see [Section 16: Model Improvement Experiments](#16-model-improvement-experiments-milestone-14) below.
 
 | Parameter | Value |
 |---|---|

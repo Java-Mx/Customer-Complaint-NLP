@@ -362,7 +362,7 @@ class TestErrorAnalysisJSON:
                 f"NaN found in improved_metrics['{key}']"
 
     def test_json_improved_accuracy_matches_known_result(self, error_analysis_json):
-        """Improved model accuracy must be approximately 69.56%."""
+        """Improved model accuracy must be approximately 69.82%."""
         acc = error_analysis_json["improved_metrics"]["accuracy"]
-        assert abs(acc - 0.6956) < 0.005, \
-            f"Improved accuracy {acc:.4f} deviates from expected 0.6956"
+        assert abs(acc - 0.6982) < 0.005, \
+            f"Improved accuracy {acc:.4f} deviates from expected 0.6982"

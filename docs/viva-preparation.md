@@ -28,7 +28,7 @@ Higher accuracy or F1 on a normalized taxonomy does not indicate that the classi
 **No.** We maintained strict anti-leakage safeguards:
 1. The only input feature to the classifier is the **consumer complaint narrative text**.
 2. Metadata fields (Product, Sub-product, Issue, State, Company, Date) are never provided as inputs.
-3. The TF-IDF vectorizers (237,148 combined word and character n-gram features) were fitted strictly on the 20,000-record training pool prior to any test-set inference.
+3. The TF-IDF vectorizers (initially 237,148 features in the exploratory model, streamlined to 114,493 features in the improved final model) were fitted strictly on the 20,000-record training pool prior to any test-set inference.
 4. The test set was untouched during both vectorization and model fitting.
 
 ---
