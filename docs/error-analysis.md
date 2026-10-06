@@ -378,6 +378,74 @@ Based on the measured data above:
 
 ---
 
+## 16. Model Improvement Experiments
+
+A systematic empirical optimization was performed across 98 candidate configurations to improve the classical classification pipeline on the authentic 25,000-record CFPB complaint dataset.
+
+### 1. Previous Model (Reference Configuration)
+- **Features**: Word TF-IDF (1,2) + Character TF-IDF (3,5 with `analyzer='char_wb'`), yielding 237,148 sparse dimensions.
+- **Classifier**: Logistic Regression (`solver='lbfgs'`, $C=1.0$, `class_weight='balanced'`, `max_iter=1000`).
+- **Holdout Test Set Performance (N=5,000)**: Accuracy 69.56%, Macro F1 50.56%, Weighted F1 69.55%, Macro Precision 49.67%, Macro Recall 51.97%.
+
+### 2. New Candidate Models & Exploration Protocol
+To ensure zero data leakage, the 20,000-record training pool was partitioned into an internal **16,000 train / 4,000 validation split** (`random_state=42`). The 5,000-record final test set was kept strictly untouched during all 98 candidate evaluations.
+
+The search explored:
+- **Word TF-IDF**: Unigram (1,1), bigram (1,2), trigram (1,3); `min_df` $\in \{2,3,5\}$; `max_df` $\in \{0.5, 0.8, 0.95\}$; sublinear scaling; norm (`l1`, `l2`).
+- **Character TF-IDF**: Cross-boundary character n-grams (`analyzer='char'`) vs. word-boundary character n-grams (`analyzer='char_wb'`) across spans (2,5), (3,5), (3,6), (4,6).
+- **Classifiers**: Logistic Regression ($C \in \{0.1, 0.25, 0.5, 1, 2, 4, 8\}$ with/without balancing), LinearSVC ($C \in \{0.05, 0.1, 0.25, 0.5, 1, 2\}$ with/without balancing), ComplementNB and MultinomialNB ($\alpha \in \{0.01, 0.03, 0.1, 0.3, 1.0\}$).
+- **Class Weighting**: Train-only power-scaled weights $w_c = (n / (k \cdot n_c))^p$ with $p \in \{0.25, 0.5, 0.75, 1.25\}$.
+- **Classical Feature Augmentation**: Stateless text length and redaction mask statistics.
+
+### 3. Validation Results (4,000-Sample Validation Set)
+Candidate models were ranked using the priority order: **Val Macro F1 $\rightarrow$ Val Macro Recall $\rightarrow$ Val Accuracy $\rightarrow$ Val Weighted F1**.
+
+| Stage | Candidate Model & Representation | Dimensions | Val Macro F1 | Val Macro Rec | Val Accuracy | Val Weighted F1 |
+|---|---|---:|---:|---:|---:|---:|
+| **S3 LR (Selected)** | **LogisticRegression ($C=2.0$, balanced) + Word(1,1) + Char(3,5, `char`)** | **109,228** | **51.84%** | **51.78%** | **69.95%** | **69.83%** |
+| S2 word+char | LogisticRegression ($C=1.0$, balanced) + Word(1,1) + Char(3,5, `char`) | 109,228 | 51.49% | 51.96% | 69.17% | 69.20% |
+| S0 reference | LogisticRegression ($C=1.0$, balanced) + Word(1,2) + Char(3,5, `char_wb`) | 198,478 | 51.27% | 51.65% | 69.20% | 69.13% |
+| S1 word | LogisticRegression ($C=1.0$, balanced) + Word(1,1) | 13,209 | 51.28% | 53.05% | 68.27% | 68.52% |
+| S4 SVC | LinearSVC ($C=0.5$, balanced) + Word(1,2) + Char(3,5, `char_wb`) | 198,478 | 49.15% | 48.36% | 70.77% | 69.99% |
+| S4 SVC | LinearSVC ($C=0.5$, balanced) + Word(1,1) + Char(3,5, `char`) | 109,228 | 48.98% | 48.65% | 70.40% | 69.85% |
+| S4 NB | MultinomialNB ($\alpha=0.01$) + Word(1,1) + Char(3,5, `char`) | 109,228 | 46.80% | 44.88% | 69.27% | 68.15% |
+| S4 NB | ComplementNB ($\alpha=0.3$) + Word(1,1) + Char(3,5, `char`) | 109,228 | 39.06% | 38.51% | 67.05% | 62.63% |
+
+*Key finding on model selection:* LinearSVC achieved higher raw Accuracy (70.77%) but inferior Macro F1 (49.15%) because its hinge loss penalized minority errors less effectively than class-balanced cross-entropy loss in Logistic Regression. Logistic Regression was selected to maintain balanced minority recall.
+
+### 4. Selected Configuration
+- **Model**: Logistic Regression (`solver='lbfgs'`, $C=2.0$, `class_weight='balanced'`, `max_iter=1000`, `random_state=42`).
+- **Features**: Word TF-IDF (1,1, `min_df=2`, `max_df=0.95`, `sublinear_tf=True`) + Character TF-IDF (3,5, `analyzer='char'`, `min_df=5`, `max_df=0.95`, `max_features=100,000`, `sublinear_tf=True`).
+- **Vocabulary**: 114,493 features total (when fitted on the 20,000 training pool).
+
+### 5. Final Test Results (Untouched N=5,000 Test Records)
+Retrained on the full 20,000 training pool and evaluated once on the holdout test set:
+
+| Metric | Previous Final Model | Improved Final Model | Improvement (pp) |
+|---|---:|---:|---:|
+| **Overall Accuracy** | 69.56% | **69.82%** | **+0.26 pp** |
+| **Macro F1-Score** | 50.56% | **50.88%** | **+0.33 pp** |
+| **Weighted F1-Score** | 69.55% | **69.78%** | **+0.23 pp** |
+| **Macro Precision** | 49.67% | **50.41%** | **+0.74 pp** |
+| **Macro Recall** | **51.97%** | 51.69% | -0.28 pp |
+| **Weighted Precision** | 70.03% | **70.08%** | **+0.05 pp** |
+| **Weighted Recall** | 69.56% | **69.82%** | **+0.26 pp** |
+| **Feature Dimensions** | 237,148 | **114,493** | **-51.7% (-122,655)** |
+| **Model Disk Size** | 34.2 MB | **16.5 MB** | **-51.8%** |
+
+### 6. Improvement Over Previous Model
+The new model achieves strictly higher **Accuracy (+0.26 pp)**, **Macro F1 (+0.33 pp)**, **Weighted F1 (+0.23 pp)**, and **Macro Precision (+0.74 pp)** on the untouched holdout test set, while reducing feature dimensionality and model memory footprint by over 51%.
+
+### 7. Reasons for Improvement
+1. **Unigram Focus + Character-Level Subwords**: Eliminating word-level bigrams removes noisy collinear features, while cross-boundary character n-grams (`analyzer='char'`) effectively model subword stems, compound terms, and punctuation-adjacent phrases.
+2. **Optimal Regularization ($C=2.0$)**: The more compact, less redundant feature space allows a slightly less regularized model ($C=2.0$ vs. $C=1.0$) to fit discriminative category boundaries more sharply without overfitting.
+
+### 8. Limitations
+1. **Administrative Label Synonymy Ceiling**: The ~30% error ceiling remains driven by historical CFPB label renames (e.g. *Credit reporting* vs. *Credit reporting, credit repair services...*), which cannot be separated purely from narrative text.
+2. **Rare Class Instability**: Classes with test support $<30$ remain sensitive to small prediction shifts.
+
+---
+
 ## Output Files
 
 | File | Description |

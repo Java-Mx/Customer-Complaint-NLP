@@ -117,7 +117,7 @@ def test_apptest_live_demo_lifecycle_and_actions():
     assert analyzed is not None
     assert "Credit card" in analyzed["pred_category"]
     assert 0.0 <= analyzed["confidence"] <= 1.0
-    assert analyzed["feature_dim"] == 237148
+    assert analyzed["feature_dim"] == 114493
     assert analyzed["active_nnz"] > 0
 
     metric_labels = [m.label for m in at.metric]

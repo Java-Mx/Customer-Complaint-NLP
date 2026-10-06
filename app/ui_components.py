@@ -686,7 +686,7 @@ def render_pipeline_trace(analyzed_data: Dict[str, Any]) -> None:
               ↓
         Tokenisation / Cleaned Text
               ↓
-        Combined Word + Character TF-IDF (Sparse CSR: 237,148 dimensions)
+        Combined Word + Character TF-IDF (Sparse CSR: 114,493 dimensions)
               ↓
         Logistic Regression (class_weight='balanced')
               ↓
@@ -705,7 +705,7 @@ def render_pipeline_trace(analyzed_data: Dict[str, Any]) -> None:
 
     st.markdown("#### TF-IDF Feature Representation Summary")
     rep_type = "Combined Word + Character TF-IDF" if analyzed_data.get("is_composite", True) else "Word TF-IDF"
-    feature_dim = analyzed_data.get("feature_dim", 237148)
+    feature_dim = analyzed_data.get("feature_dim", 114493)
     active_nnz = analyzed_data.get("active_nnz", 0)
 
     # ROW 1: Compact metric cards
@@ -865,8 +865,8 @@ def render_model_insights_section(
             fig_base = create_baseline_comparison_chart(bvsi_df)
             st.plotly_chart(fig_base, use_container_width=True, config={"displayModeBar": True, "displaylogo": False})
             st.caption(
-                "Key Finding: Class balancing elevated Macro F1 from 34.15% to 50.56% (+16.41 pp, a 48% relative gain) "
-                "while maintaining overall accuracy at 69.56% on the controlled holdout test set."
+                "Key Finding: Class balancing and subword character n-grams elevated Macro F1 from 34.15% to 50.88% (+16.73 pp, a 49% relative gain) "
+                "while elevating overall accuracy to 69.82% on the controlled holdout test set."
             )
         else:
             st.info("baseline_vs_improved.csv not found.")

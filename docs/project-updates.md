@@ -176,3 +176,32 @@ This document serves as the permanent chronological engineering, modeling, and r
   - **Inline SVG Status Indicators:** Replaced Unicode checkmarks (`✓`, `✔`, `☑`) with accessible, reusable inline SVG check, warning, and error icons (`render_status_tick()`).
   - **Runtime & Type Hardening:** Resolved multi-variable unpacking mismatch in Model Evaluation and variable scoping in Error Analysis; normalized mixed-type dictionary values to strings to prevent PyArrow serialization warnings.
 - **Tests & Verification:** Full test suite expanded to **215 tests** (`python -m pytest -v`), with 100% pass rate. Verified clean compilation via `compileall` and headless server startup with HTTP 200 responses.
+
+---
+
+## Milestone 14: Systematic Classical Model Improvement & Final Controlled Evaluation
+- **Commit:** Current
+- **Commit Message:** `feat: improve classical complaint classification`
+- **Scope & Changes:** Implemented a reproducible, leakage-free empirical framework for classical NLP model optimization across 98 candidate configurations, followed by a one-shot evaluation on the held-out 5,000-record test set:
+  - **Reproducible Experimentation Framework (`scripts/run_model_improvement.py`, `src/model_selection.py`):**
+    - Established strict anti-leakage protocol: Stratified 80/20 partition into 20,000 training pool and 5,000 held-out test set; 20k pool partitioned into 16,000 train and 4,000 validation records. All candidate selection performed exclusively on the 4,000 validation subset.
+    - Evaluated 98 candidate configurations across 7 structured stages: production reference (S0), word TF-IDF variations (S1), character n-gram spans and analyzers (S2), Logistic Regression hyperparameter grids (S3), alternative sparse classifiers including LinearSVC and Naive Bayes (S4), train-only power class weighting (S5), and classical stylistic text statistics (S6).
+    - Ranked candidates hierarchically by Validation Macro F1 $\rightarrow$ Validation Macro Recall $\rightarrow$ Validation Accuracy $\rightarrow$ Validation Weighted F1.
+  - **Winning Model Configuration:**
+    - Features: Word TF-IDF (1,1, `min_df=2`, `max_df=0.95`, sublinear TF) + Character TF-IDF (3,5, `analyzer='char'`, `min_df=5`, `max_df=0.95`, `max_features=100,000`, sublinear TF).
+    - Classifier: Multinomial Logistic Regression (`solver='lbfgs'`, $C=2.0$, `class_weight='balanced'`, `max_iter=1000`).
+    - Feature space: 114,493 dimensions (pruned 122,655 redundant features, achieving a 51.7% vocabulary reduction).
+  - **Final Controlled Test Evaluation (N = 5,000 Untouched Records):**
+    - Retrained winning configuration on the full 20,000-record training pool and evaluated once on the 5,000-record test set:
+    - **Accuracy:** **69.82%** (+0.26 pp vs. previous 69.56%; +0.68 pp vs. baseline 69.14%).
+    - **Macro F1:** **50.88%** (+0.33 pp vs. previous 50.56%; +16.73 pp vs. baseline 34.15%).
+    - **Weighted F1:** **69.78%** (+0.23 pp vs. previous 69.55%; +4.05 pp vs. baseline 65.73%).
+    - **Macro Precision:** **50.41%** (+0.74 pp vs. previous 49.67%).
+    - **Model Artifact Size:** Serialized classifier reduced from 34.2 MB to 16.5 MB (-51.8%).
+  - **Streamlit & Artifact Integration:**
+    - Serialized and deployed improved classifier and vectorizers to `models/`.
+    - Updated evaluation benchmarks in `results/final_evaluation_metrics.json`, `results/baseline_vs_improved.csv`, `results/model_improvement_per_category.csv`, and `results/model_improvement_confusion_matrix.csv`.
+    - Preserved seamless single-narrative classification, Top-K cosine similarity retrieval, live CFPB API integration, error analysis, and cross-taxonomy diagnostics.
+- **Tests & Verification:**
+  - Added unit tests for leakage-safe model selection in `tests/test_model_selection.py` (9 tests) and pipeline verification in `tests/test_run_search.py` (2 tests). Total test suite expanded to **226 tests** (all passing).
+  - Verified clean syntax across all modules with `compileall`.

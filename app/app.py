@@ -1358,9 +1358,9 @@ elif selected_section == "SYSTEM ARCHITECTURE":
                                       ↓
                      Feature Extraction: TF-IDF Engine
           ┌──────────────────────────────────────────────────────────┐
-          │  Word TF-IDF: Unigrams + Bigrams (ngram_range=(1,2))    │
-          │  Char TF-IDF: Subwords within boundaries (char_wb, 3-5)  │
-          │  Combined: scipy.sparse.hstack (237,148 sparse features) │
+          │  Word TF-IDF: Unigrams (ngram_range=(1,1))                 │
+          │  Char TF-IDF: Character n-grams (char, 3-5)                │
+          │  Combined: scipy.sparse.hstack (114,493 sparse features)   │
           └──────────────────────────────────────────────────────────┘
                                       ↓
                     ┌───────────────────────────────────┐
@@ -1374,8 +1374,8 @@ elif selected_section == "SYSTEM ARCHITECTURE":
                                                         │
                                                         ▼
                                                  Model Evaluation
-                                          (Accuracy: 69.56%, Macro F1: 50.56%,
-                                            Weighted F1: 69.55% on N=5,000 Test)
+                                          (Accuracy: 69.82%, Macro F1: 50.88%,
+                                            Weighted F1: 69.78% on N=5,000 Test)
         ```
         """
     )
@@ -1396,8 +1396,8 @@ elif selected_section == "SYSTEM ARCHITECTURE":
     with col3:
         st.markdown("### Measured Performance Gain")
         st.write(
-            "Class-balanced optimization elevated **Macro F1 from 34.15% to 50.56%** (+16.41 pp gain) "
-            "and **Accuracy to 69.56%** on the controlled 5,000-record holdout test set."
+            "Class-balanced optimization and subword character n-grams elevated **Macro F1 from 34.15% to 50.88%** (+16.73 pp gain) "
+            "and **Accuracy to 69.82%** on the controlled 5,000-record holdout test set."
         )
 
     st.markdown("---")
