@@ -262,9 +262,24 @@ This document serves as the permanent chronological engineering, modeling, and r
      - Added explicit labels with `label_visibility="collapsed"` for text areas to resolve accessibility warnings.
   5. **Strict Preservation of NLP & Model Behavior:**
      - No modifications to preprocessing algorithms, TF-IDF configurations, model serialization, classification logic, similarity metrics, or evaluation figures.
+### Milestone 17: HTML Rendering Regression Repair, Unified Header Hierarchy & Strict UI Regression Suite
+
+- **Objective:** Resolve broken HTML rendering and vertical title wrapping introduced during UI refactoring, enforce a single robust page-header architecture across all 9 modules, eliminate split container markdown calls, and implement a strict automated UI regression test suite.
+- **Root Cause & Architectural Repairs:**
+  1. **Indented Code-Block Regression Fixed:** In CommonMark/markdown-it, multiline f-strings with 4-space indentation were erroneously parsed as indented `<pre><code>` code blocks, terminating HTML containers early and exposing raw literal text such as `</div>` and `<div class="page-subtitle">...`. Resolved by formatting all custom HTML components as self-contained, unindented, single HTML fragments with zero internal blank lines.
+  2. **Page Title Vertical Wrapping Fixed:** Unclosed flex containers (`.page-title-row`) caused flex items to collapse to minimum content width. Replaced `<h1>` with `<div class="page-title">`, added `writing-mode: horizontal-tb !important;`, `word-break: normal !important;`, `overflow-wrap: normal !important;`, and `flex-wrap: wrap !important;` to ensure titles remain strictly horizontal across desktop and responsive viewports.
+  3. **Split Markdown Containers Eliminated:** Removed pattern where `<div class="example-btn-area">` was opened in one `st.markdown()` call and closed in another.
+  4. **Standardized Header & Metric Presentation:** All 9 modules now share identical uppercase header hierarchy. MODEL EVALUATION features a balanced 3×3 metric grid displaying all 9 key metrics with explicit `pp` percentage-point deltas and unclipped values (`5,000 complaints`, `114,493 features`). Native `st.success` / `st.error` / `st.warning` replace custom HTML where Streamlit native components are optimal.
+  5. **Strict UI Regression Suite Added (`tests/test_ui_regression_and_html.py`):**
+     - Automated `html.parser.HTMLParser` validation verifying balanced tags and zero orphan closures.
+     - Source-level regression tests asserting zero `use_container_width` occurrences and zero split containers.
+     - CommonMark rendered-text regression tests verifying zero escaped raw HTML tags in visible output.
+     - CSS regression tests guarding against vertical text and character-level breaking.
+     - End-to-end `streamlit.testing.v1.AppTest` smoke test verifying seamless navigation across all 9 modules without exceptions.
+     - Headless HTTP 200 server startup and zero deprecation warning validation.
+  6. **Zero NLP / Model Modification:** Preprocessing, TF-IDF vectorization, models, confusion matrices, and benchmark numbers remain untouched.
 - **Testing & Verification:**
-  - Full test suite passed: 253 passed tests across all unit and integration suites (`pytest`).
-  - Python compilation validated: `python -m compileall src app scripts tests` passed with zero errors.
-  - Headless Streamlit server startup verified: HTTP 200 on health check and main dashboard.
-  - Comprehensive programmatic navigation verified across all 9 pages via `streamlit.testing.v1.AppTest`.
+  - Full test suite passing: 266 passed tests (`pytest -q`).
+  - Python compilation validated: `python -m compileall src app scripts tests` passed cleanly.
+  - Headless Streamlit server verified: HTTP 200 on health check and main application with zero warnings.
 

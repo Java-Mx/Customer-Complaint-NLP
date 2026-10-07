@@ -234,15 +234,15 @@ def render_status_tick(status: str = "success") -> str:
 def render_status_row(label: str, subtext: str, status: str = "success") -> str:
     """Return HTML snippet for a single status item within the unified status card."""
     icon_svg = render_status_tick(status)
-    return f"""
-    <div class="status-item">
-        <div class="status-icon-wrap">{icon_svg}</div>
-        <div class="status-info">
-            <div class="status-label">{label}</div>
-            <div class="status-sub">{subtext}</div>
-        </div>
-    </div>
-    """
+    return (
+        f'<div class="status-item">'
+        f'<div class="status-icon-wrap">{icon_svg}</div>'
+        f'<div class="status-info">'
+        f'<div class="status-label">{label}</div>'
+        f'<div class="status-sub">{subtext}</div>'
+        f'</div>'
+        f'</div>'
+    )
 
 
 # ==============================================================================
@@ -426,14 +426,19 @@ def apply_custom_styles() -> None:
        STANDARDIZED PAGE & SECTION HEADERS
        ------------------------------------------------------------------------- */
     .app-page-header {
-        margin-bottom: 1rem;
-        padding-bottom: 0.65rem;
-        border-bottom: 1px solid var(--border-subtle);
+        width: 100% !important;
+        margin-bottom: 1rem !important;
+        padding-bottom: 0.65rem !important;
+        border-bottom: 1px solid var(--border-subtle) !important;
+        box-sizing: border-box !important;
     }
     .page-title-row {
-        display: flex;
-        align-items: center;
-        gap: 0.65rem;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        flex-wrap: wrap !important;
+        gap: 0.65rem !important;
+        width: 100% !important;
     }
     .page-title {
         font-size: 1.35rem !important;
@@ -443,30 +448,64 @@ def apply_custom_styles() -> None:
         margin: 0 !important;
         padding: 0 !important;
         text-transform: uppercase !important;
+        line-height: 1.3 !important;
+        white-space: normal !important;
+        word-break: normal !important;
+        overflow-wrap: normal !important;
+        writing-mode: horizontal-tb !important;
+        display: inline-block !important;
+        width: auto !important;
+        max-width: 100% !important;
+    }
+    .page-badge {
+        font-size: 0.70rem !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.04em !important;
+        text-transform: uppercase !important;
+        padding: 0.15rem 0.5rem !important;
+        border-radius: var(--radius-sm) !important;
+        background-color: rgba(59, 130, 246, 0.2) !important;
+        border: 1px solid var(--accent-border) !important;
+        color: #93c5fd !important;
+        display: inline-block !important;
     }
     .page-subtitle {
         font-size: 0.84rem !important;
         color: var(--text-muted) !important;
         margin-top: 0.25rem !important;
         line-height: 1.45 !important;
+        white-space: normal !important;
+        word-break: normal !important;
+        overflow-wrap: normal !important;
+        writing-mode: horizontal-tb !important;
+        display: block !important;
     }
 
     .app-section-header {
-        margin-top: 0.85rem;
-        margin-bottom: 0.55rem;
+        width: 100% !important;
+        margin-top: 0.85rem !important;
+        margin-bottom: 0.55rem !important;
     }
     .section-title {
-        font-size: 0.95rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        letter-spacing: 0.02em;
-        text-transform: uppercase;
+        font-size: 0.95rem !important;
+        font-weight: 700 !important;
+        color: var(--text-primary) !important;
+        letter-spacing: 0.02em !important;
+        text-transform: uppercase !important;
+        writing-mode: horizontal-tb !important;
+        word-break: normal !important;
+        overflow-wrap: normal !important;
+        display: block !important;
     }
     .section-desc {
-        font-size: 0.80rem;
-        color: var(--text-muted);
-        margin-top: 0.12rem;
-        line-height: 1.4;
+        font-size: 0.80rem !important;
+        color: var(--text-muted) !important;
+        margin-top: 0.12rem !important;
+        line-height: 1.4 !important;
+        writing-mode: horizontal-tb !important;
+        word-break: normal !important;
+        overflow-wrap: normal !important;
+        display: block !important;
     }
 
     /* -------------------------------------------------------------------------
@@ -765,27 +804,24 @@ def render_page_header(
     """Render standardized top page header across all application modules."""
     badge_html = f'<span class="page-badge">{badge}</span>' if badge else ""
     sub_html = f'<div class="page-subtitle">{subtitle}</div>' if subtitle else ""
-    html = f"""
-    <div class="app-page-header">
-        <div class="page-title-row">
-            <h1 class="page-title">{title}</h1>
-            {badge_html}
-        </div>
-        {sub_html}
-    </div>
-    """
+    html = (
+        f'<div class="app-page-header">'
+        f'<div class="page-title-row"><div class="page-title">{title}</div>{badge_html}</div>'
+        f'{sub_html}'
+        f'</div>'
+    )
     st.markdown(html, unsafe_allow_html=True)
 
 
 def render_section_header(title: str, description: Optional[str] = None) -> None:
     """Render standardized section header across all application modules."""
     desc_html = f'<div class="section-desc">{description}</div>' if description else ""
-    html = f"""
-    <div class="app-section-header">
-        <div class="section-title">{title}</div>
-        {desc_html}
-    </div>
-    """
+    html = (
+        f'<div class="app-section-header">'
+        f'<div class="section-title">{title}</div>'
+        f'{desc_html}'
+        f'</div>'
+    )
     st.markdown(html, unsafe_allow_html=True)
 
 
@@ -847,12 +883,12 @@ def render_metric_grid(metrics: List[Dict[str, Any]], cols: int = 4) -> None:
 def render_info_card(text: str, title: Optional[str] = None) -> None:
     """Render a subtle contextual callout card."""
     title_html = f'<div class="info-card-title">{title}</div>' if title else ""
-    html = f"""
-    <div class="app-info-card">
-        {title_html}
-        <div class="info-card-body">{text}</div>
-    </div>
-    """
+    html = (
+        f'<div class="app-info-card">'
+        f'{title_html}'
+        f'<div class="info-card-body">{text}</div>'
+        f'</div>'
+    )
     st.markdown(html, unsafe_allow_html=True)
 
 
@@ -880,17 +916,18 @@ def render_status_card(
     rep_str: str,
 ) -> None:
     """Render unified system status card for sidebar."""
-    card_html = f"""
-    <div class="status-card">
-        <div class="status-header">SYSTEM STATUS</div>
-        <div class="status-list">
-            {render_status_row("CFPB Search API", api_str, api_status)}
-            {render_status_row("Local Dataset", data_str, data_status)}
-            {render_status_row("Classifier", model_str, model_status)}
-            {render_status_row("Representation", rep_str, rep_status)}
-        </div>
-    </div>
-    """
+    rows = (
+        f'{render_status_row("CFPB Search API", api_str, api_status)}'
+        f'{render_status_row("Local Dataset", data_str, data_status)}'
+        f'{render_status_row("Classifier", model_str, model_status)}'
+        f'{render_status_row("Representation", rep_str, rep_status)}'
+    )
+    card_html = (
+        f'<div class="status-card">'
+        f'<div class="status-header">SYSTEM STATUS</div>'
+        f'<div class="status-list">{rows}</div>'
+        f'</div>'
+    )
     st.sidebar.markdown(card_html, unsafe_allow_html=True)
 
 
@@ -1009,7 +1046,7 @@ def render_sidebar_navigation(
 def render_live_demo_header() -> None:
     """Render standardized header for LIVE complaint analysis module."""
     render_page_header(
-        title="Live Complaint Analysis",
+        title="LIVE DEMO",
         subtitle="Paste a consumer complaint to evaluate supervised classification and sparse cosine similarity retrieval in real time.",
     )
 
@@ -1028,7 +1065,6 @@ def render_example_complaint_buttons() -> None:
 
     # Standard Domain Examples
     st.caption("Standard CFPB Product Grievances:")
-    st.markdown('<div class="example-btn-area">', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     standard_keys = [
         "Unauthorized Credit Card Payment",
@@ -1072,8 +1108,6 @@ def render_example_complaint_buttons() -> None:
                 args=(item["text"],),
             )
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
 
 def render_prediction_result(analyzed_data: Dict[str, Any]) -> None:
     """Render prominently formatted prediction result and top 5 categories distribution."""
@@ -1081,25 +1115,21 @@ def render_prediction_result(analyzed_data: Dict[str, Any]) -> None:
 
     pcol1, pcol2 = st.columns([2, 1])
     with pcol1:
-        st.markdown(
-            f"""
-            <div class="prediction-card">
-                <div class="card-label">PREDICTED CATEGORY</div>
-                <div class="card-value-pred">{analyzed_data['pred_category']}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        html_pred = (
+            f'<div class="prediction-card">'
+            f'<div class="card-label">PREDICTED CATEGORY</div>'
+            f'<div class="card-value-pred">{analyzed_data["pred_category"]}</div>'
+            f'</div>'
         )
+        st.markdown(html_pred, unsafe_allow_html=True)
     with pcol2:
-        st.markdown(
-            f"""
-            <div class="prediction-card">
-                <div class="card-label">MODEL CONFIDENCE SCORE</div>
-                <div class="card-value-conf">{analyzed_data['confidence']:.2%}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        html_conf = (
+            f'<div class="prediction-card">'
+            f'<div class="card-label">MODEL CONFIDENCE SCORE</div>'
+            f'<div class="card-value-conf">{analyzed_data["confidence"]:.2%}</div>'
+            f'</div>'
         )
+        st.markdown(html_conf, unsafe_allow_html=True)
 
     st.caption(
         "The confidence score reflects the Logistic Regression class probability distribution and is "
@@ -1165,15 +1195,13 @@ def render_pipeline_trace(analyzed_data: Dict[str, Any]) -> None:
         render_metric_card("Active Non-Zero Features", f"{active_nnz:,}")
 
     # ROW 2: Wide horizontal information card for Feature Representation
-    st.markdown(
-        f"""
-        <div class="feature-rep-card">
-            <div class="feature-rep-label">FEATURE REPRESENTATION</div>
-            <div class="feature-rep-val">{rep_type}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    rep_html = (
+        f'<div class="feature-rep-card">'
+        f'<div class="feature-rep-label">FEATURE REPRESENTATION</div>'
+        f'<div class="feature-rep-val">{rep_type}</div>'
+        f'</div>'
     )
+    st.markdown(rep_html, unsafe_allow_html=True)
 
     st.caption("Representation: Sparse CSR (`scipy.sparse.csr_matrix`). Preserves memory efficiency without dense allocation.")
 

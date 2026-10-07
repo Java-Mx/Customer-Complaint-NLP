@@ -363,7 +363,7 @@ selected_section = render_sidebar_navigation(
 
 if selected_section == "LIVE DEMO":
     render_page_header(
-        title="Live Complaint Analysis",
+        title="LIVE DEMO",
         subtitle="Paste a consumer complaint to evaluate supervised classification and sparse cosine similarity retrieval in real time.",
     )
 
@@ -497,7 +497,7 @@ if selected_section == "LIVE DEMO":
 
 elif selected_section == "DATA EXPLORER":
     render_page_header(
-        title="CFPB Data Explorer",
+        title="DATA EXPLORER",
         subtitle="Query live records from the official CFPB Search API or inspect the pre-processed local dataset.",
     )
 
@@ -549,12 +549,9 @@ elif selected_section == "DATA EXPLORER":
         if "live_cfpb_df" in st.session_state:
             df_live = st.session_state["live_cfpb_df"]
             if df_live.empty:
-                st.markdown(f"{get_status_icon_svg('warning')} **No records returned matching the query criteria.**", unsafe_allow_html=True)
+                st.warning("No records returned matching the query criteria.")
             else:
-                st.markdown(
-                    f"{get_status_icon_svg('check')} **Successfully retrieved {len(df_live)} live complaint records from CFPB Search API.**",
-                    unsafe_allow_html=True,
-                )
+                st.success(f"Successfully retrieved {len(df_live)} live complaint records from CFPB Search API.")
 
                 display_cols = [c for c in ["complaint_id", "category", "company", "date_received", "state", "issue"] if c in df_live.columns]
                 st.dataframe(df_live[display_cols], width="stretch")
@@ -612,8 +609,8 @@ elif selected_section == "DATA EXPLORER":
 
 elif selected_section == "MODEL EVALUATION":
     render_page_header(
-        title="Model Evaluation & Diagnostics",
-        subtitle="Rigorous comparative evaluation between baseline and final models on the untouched 5,000-record holdout test split.",
+        title="MODEL EVALUATION",
+        subtitle="Systematic evaluation and comparison of complaint classification models on the untouched holdout test split.",
     )
 
     render_info_card(
@@ -631,10 +628,17 @@ elif selected_section == "MODEL EVALUATION":
 
         render_section_header("Holdout Test Set Performance (N = 5,000)", "Comprehensive comparative evaluation against initial baseline configuration.")
 
-        # Comparison KPI Cards (Standardized Responsive 4-Column Grid)
-        col1, col2, col3, col4 = st.columns(4)
+        # Comparison KPI Cards (Standardized Responsive 3x3 Grid)
+        delta_acc = (improved["accuracy"] - base["accuracy"]) * 100
+        delta_mf1 = (improved["macro_f1"] - base["macro_f1"]) * 100
+        delta_wf1 = (improved["weighted_f1"] - base["weighted_f1"]) * 100
+        delta_mprec = (improved["macro_precision"] - base["macro_precision"]) * 100
+        delta_mrec = (improved["macro_recall"] - base["macro_recall"]) * 100
+        delta_wprec = (improved["weighted_precision"] - base["weighted_precision"]) * 100
+        delta_wrec = (improved["weighted_recall"] - base["weighted_recall"]) * 100
+
+        col1, col2, col3 = st.columns(3)
         with col1:
-            delta_acc = (improved["accuracy"] - base["accuracy"]) * 100
             render_metric_card(
                 "Overall Accuracy",
                 f"{improved['accuracy']:.2%}",
@@ -642,7 +646,6 @@ elif selected_section == "MODEL EVALUATION":
                 help="Test accuracy on 5,000 holdout complaints",
             )
         with col2:
-            delta_mf1 = (improved["macro_f1"] - base["macro_f1"]) * 100
             render_metric_card(
                 "Macro F1",
                 f"{improved['macro_f1']:.2%}",
@@ -650,50 +653,54 @@ elif selected_section == "MODEL EVALUATION":
                 help="Unweighted average F1 across all 18 classes",
             )
         with col3:
-            delta_wf1 = (improved["weighted_f1"] - base["weighted_f1"]) * 100
             render_metric_card(
                 "Weighted F1",
                 f"{improved['weighted_f1']:.2%}",
                 delta=f"{delta_wf1:+.2f} pp",
                 help="Support-weighted F1 across all 18 classes",
             )
-        with col4:
-            render_metric_card(
-                "Test Partition",
-                f"{improved['test_samples']:,} complaints",
-                delta=f"+{improved['test_samples'] - base['samples']:,} vs baseline",
-                help="Untouched holdout evaluation split",
-            )
 
-        col5, col6, col7, col8 = st.columns(4)
-        with col5:
-            delta_mprec = (improved["macro_precision"] - base["macro_precision"]) * 100
+        col4, col5, col6 = st.columns(3)
+        with col4:
             render_metric_card(
                 "Macro Precision",
                 f"{improved['macro_precision']:.2%}",
                 delta=f"{delta_mprec:+.2f} pp",
                 help="Unweighted average precision across all classes",
             )
-        with col6:
-            delta_mrec = (improved["macro_recall"] - base["macro_recall"]) * 100
+        with col5:
             render_metric_card(
                 "Macro Recall",
                 f"{improved['macro_recall']:.2%}",
                 delta=f"{delta_mrec:+.2f} pp",
                 help="Unweighted average recall across all classes",
             )
-        with col7:
-            delta_wprec = (improved["weighted_precision"] - base["weighted_precision"]) * 100
+        with col6:
             render_metric_card(
                 "Weighted Precision",
                 f"{improved['weighted_precision']:.2%}",
                 delta=f"{delta_wprec:+.2f} pp",
                 help="Support-weighted precision across all classes",
             )
+
+        col7, col8, col9 = st.columns(3)
+        with col7:
+            render_metric_card(
+                "Weighted Recall",
+                f"{improved['weighted_recall']:.2%}",
+                delta=f"{delta_wrec:+.2f} pp",
+                help="Support-weighted recall across all classes",
+            )
         with col8:
             render_metric_card(
-                "Total Features",
-                f"{improved['total_features']:,}",
+                "Test Partition",
+                f"{improved['test_samples']:,} complaints",
+                help="Untouched holdout evaluation split",
+            )
+        with col9:
+            render_metric_card(
+                "Vocabulary",
+                f"{improved['total_features']:,} features",
                 help="Combined Word (1,1) + Char (3,5) vocabulary dimensions",
             )
 
@@ -881,8 +888,8 @@ elif selected_section == "MODEL EVALUATION":
 
 elif selected_section == "ERROR ANALYSIS":
     render_page_header(
-        title="Classification Error Analysis",
-        subtitle="Diagnostic evaluation of the final trained model on the untouched 5,000-record holdout test set.",
+        title="ERROR ANALYSIS",
+        subtitle="Diagnostic evaluation of classification errors and confusion patterns on the holdout test set.",
     )
 
     render_info_card(
@@ -1127,7 +1134,7 @@ elif selected_section == "ERROR ANALYSIS":
 
 elif selected_section == "TAXONOMY ANALYSIS":
     render_page_header(
-        title="Taxonomy Analysis",
+        title="TAXONOMY ANALYSIS",
         subtitle="Investigating whether classification difficulty is driven by linguistic ambiguity or CFPB administrative label variants.",
     )
 
@@ -1283,7 +1290,7 @@ elif selected_section == "TAXONOMY ANALYSIS":
 
 elif selected_section == "SIMILARITY RETRIEVAL":
     render_page_header(
-        title="Similarity Retrieval",
+        title="SIMILARITY RETRIEVAL",
         subtitle="Vector-space nearest-neighbor complaint retrieval using learned TF-IDF representations and sparse cosine similarity.",
     )
 
@@ -1374,7 +1381,7 @@ elif selected_section == "SIMILARITY RETRIEVAL":
 
 elif selected_section == "CLASSIFICATION":
     render_page_header(
-        title="Supervised Classification",
+        title="CLASSIFICATION",
         subtitle="Classify complaint narratives into CFPB product categories using the trained class-balanced logistic regression model.",
     )
 
@@ -1452,15 +1459,9 @@ elif selected_section == "CLASSIFICATION":
                     st.success(f"### Predicted Product Category:\n**{pred_category}**")
                     if actual_cat:
                         if pred_category.strip().lower() == actual_cat.strip().lower():
-                            st.markdown(
-                                f"{get_status_icon_svg('check')} **Prediction matches ground truth category.**",
-                                unsafe_allow_html=True,
-                            )
+                            st.success("Prediction matches ground truth category.")
                         else:
-                            st.markdown(
-                                f"{get_status_icon_svg('cross')} **Mismatch:** Model predicted `{pred_category}`, actual ground truth was `{actual_cat}`.",
-                                unsafe_allow_html=True,
-                            )
+                            st.error(f"Mismatch: Model predicted `{pred_category}`, actual ground truth was `{actual_cat}`.")
                 with col2:
                     render_metric_card(conf_label, f"{confidence:.2%}")
 
@@ -1479,7 +1480,7 @@ elif selected_section == "CLASSIFICATION":
 
 elif selected_section == "PREPROCESSING":
     render_page_header(
-        title="Text Preprocessing & Features",
+        title="PREPROCESSING",
         subtitle="Inspect intermediate transformation stages of the classical NLP preprocessing pipeline and extracted TF-IDF weights.",
     )
 
@@ -1548,7 +1549,7 @@ elif selected_section == "PREPROCESSING":
 
 elif selected_section == "SYSTEM ARCHITECTURE":
     render_page_header(
-        title="System Architecture",
+        title="SYSTEM ARCHITECTURE",
         subtitle="End-to-end technical architecture, sparse CSR vector representations, and project engineering milestones.",
     )
 
