@@ -244,11 +244,14 @@ def test_playwright_rendered_geometry_and_no_clipping():
                 btn = page.locator(f'button:has-text("{module_name}")').first
                 if btn.count() > 0:
                     btn.click()
-                    page.wait_for_timeout(600)
-                    page.wait_for_selector(".page-title", timeout=15000)
-
-                    t_box = page.locator(".page-title").first.bounding_box()
-                    assert t_box is not None
+                    page.wait_for_timeout(800)
+                    title_locator = page.locator(".page-title").first
+                    title_locator.wait_for(state="visible", timeout=15000)
+                    t_box = title_locator.bounding_box()
+                    if t_box is None:
+                        page.wait_for_timeout(500)
+                        t_box = page.locator(".page-title").first.bounding_box()
+                    assert t_box is not None, f"Bounding box for .page-title on module '{module_name}' is None"
                     assert t_box["y"] >= header_box["y"] + header_box["height"], (
                         f"On module '{module_name}', title ({t_box['y']}) is clipped behind toolbar ({header_box['y'] + header_box['height']})"
                     )
