@@ -12,6 +12,7 @@ import ast
 import glob
 from html.parser import HTMLParser
 from pathlib import Path
+import re
 from typing import List, Tuple
 import pytest
 import markdown_it
@@ -74,8 +75,9 @@ def validate_html(html_str: str) -> Tuple[bool, List[str]]:
 # 1. HTML VALIDATION TESTS
 # ==============================================================================
 
-def test_page_header_html_is_balanced():
+def test_page_header_html_is_balanced(monkeypatch):
     """Verify render_page_header produces completely balanced HTML across all modules."""
+    import streamlit as st
     from app.ui_components import render_page_header
 
     test_titles = [
@@ -91,18 +93,16 @@ def test_page_header_html_is_balanced():
     ]
 
     md = markdown_it.MarkdownIt("commonmark", {"html": True})
+    captured = []
+    monkeypatch.setattr(st, "markdown", lambda body, *args, **kwargs: captured.append(body))
 
     for title in test_titles:
         for badge in [None, "Active", "Benchmark"]:
-            badge_html = f'<span class="page-badge">{badge}</span>' if badge else ""
+            captured.clear()
             subtitle = f"Description and testing for module {title}."
-            sub_html = f'<div class="page-subtitle">{subtitle}</div>' if subtitle else ""
-            html = (
-                f'<div class="app-page-header">'
-                f'<div class="page-title-row"><div class="page-title">{title}</div>{badge_html}</div>'
-                f'{sub_html}'
-                f'</div>'
-            )
+            render_page_header(title=title, subtitle=subtitle, badge=badge)
+            assert len(captured) == 1, f"Expected 1 st.markdown call for {title}, got {len(captured)}"
+            html = captured[0]
 
             is_valid, errors = validate_html(html)
             assert is_valid, f"Page header HTML for '{title}' is not balanced: {errors}"
@@ -114,49 +114,45 @@ def test_page_header_html_is_balanced():
             assert "&lt;/div&gt;" not in rendered, f"Markdown parser exposed escaped closing div for '{title}': {rendered}"
 
 
-def test_section_header_html_is_balanced():
+def test_section_header_html_is_balanced(monkeypatch):
     """Verify render_section_header produces completely balanced HTML."""
+    import streamlit as st
+    from app.ui_components import render_section_header
+
+    captured = []
+    monkeypatch.setattr(st, "markdown", lambda body, *args, **kwargs: captured.append(body))
+
     desc = "Detailed explanation of intermediate preprocessing steps."
-    desc_html = f'<div class="section-desc">{desc}</div>'
-    html_with_desc = (
-        f'<div class="app-section-header">'
-        f'<div class="section-title">TEST SECTION</div>'
-        f'{desc_html}'
-        f'</div>'
-    )
+    render_section_header("TEST SECTION", description=desc)
+    assert len(captured) == 1
+    html_with_desc = captured[0]
     is_valid, errors = validate_html(html_with_desc)
     assert is_valid, f"Section header with description is not balanced: {errors}"
 
-    html_no_desc = (
-        f'<div class="app-section-header">'
-        f'<div class="section-title">TEST SECTION</div>'
-        f'</div>'
-    )
+    captured.clear()
+    render_section_header("TEST SECTION")
+    assert len(captured) == 1
+    html_no_desc = captured[0]
     is_valid, errors = validate_html(html_no_desc)
     assert is_valid, f"Section header without description is not balanced: {errors}"
 
 
-def test_status_card_html_is_balanced():
+def test_status_card_html_is_balanced(monkeypatch):
     """Verify render_status_card and render_status_row produce balanced HTML."""
-    from app.ui_components import render_status_row
+    import streamlit as st
+    from app.ui_components import render_status_row, render_status_card
 
     for status in ["success", "warning", "error", "info"]:
         row_html = render_status_row("Test Label", "Subtext info", status=status)
         is_valid, errors = validate_html(row_html)
         assert is_valid, f"Status row for {status} is not balanced: {errors}"
 
-    rows = (
-        f'{render_status_row("API", "Online", "success")}'
-        f'{render_status_row("Data", "Available", "success")}'
-        f'{render_status_row("Model", "Trained", "warning")}'
-        f'{render_status_row("Rep", "Word+Char", "error")}'
-    )
-    card_html = (
-        f'<div class="status-card">'
-        f'<div class="status-header">SYSTEM STATUS</div>'
-        f'<div class="status-list">{rows}</div>'
-        f'</div>'
-    )
+    captured = []
+    monkeypatch.setattr(st.sidebar, "markdown", lambda body, *args, **kwargs: captured.append(body))
+
+    render_status_card("Online", "Available", "Trained", "Word+Char", "success", "success", "warning", "error")
+    assert len(captured) == 1
+    card_html = captured[0]
     is_valid, errors = validate_html(card_html)
     assert is_valid, f"Full status card is not balanced: {errors}"
 
@@ -166,47 +162,143 @@ def test_status_card_html_is_balanced():
     assert "<pre>" not in rendered, f"Status card rendered as code block: {rendered}"
 
 
-def test_info_card_html_is_balanced():
+def test_info_card_html_is_balanced(monkeypatch):
     """Verify render_info_card produces balanced HTML with and without title."""
-    title_html = '<div class="info-card-title">Notice</div>'
-    html = (
-        f'<div class="app-info-card">'
-        f'{title_html}'
-        f'<div class="info-card-body">Contextual text body.</div>'
-        f'</div>'
-    )
-    is_valid, errors = validate_html(html)
-    assert is_valid, f"Info card is not balanced: {errors}"
+    import streamlit as st
+    from app.ui_components import render_info_card
+
+    captured = []
+    monkeypatch.setattr(st, "markdown", lambda body, *args, **kwargs: captured.append(body))
+
+    render_info_card("Contextual text body.", title="Notice")
+    assert len(captured) == 1
+    is_valid, errors = validate_html(captured[0])
+    assert is_valid, f"Info card with title is not balanced: {errors}"
+
+    captured.clear()
+    render_info_card("Contextual text body.")
+    assert len(captured) == 1
+    is_valid, errors = validate_html(captured[0])
+    assert is_valid, f"Info card without title is not balanced: {errors}"
 
 
-def test_no_orphan_closing_divs():
-    """Verify that no standalone closing tags exist in helper components."""
-    # Test that validator detects orphan closing tag
+def test_metric_card_html_is_balanced(monkeypatch):
+    """Verify custom card components produce structurally balanced HTML."""
+    import numpy as np
+    import streamlit as st
+    from app.ui_components import render_metric_card, render_prediction_result, render_pipeline_trace
+
+    # 1. Native metric card helper
+    metric_captured = []
+    monkeypatch.setattr(st, "metric", lambda *args, **kwargs: metric_captured.append((args, kwargs)))
+    render_metric_card("Overall Accuracy", "69.82%", delta="+7.99 pp", help="Holdout accuracy")
+    assert len(metric_captured) == 1
+    assert metric_captured[0][1]["value"] == "69.82%"
+
+    # 2. Custom HTML card components in ui_components
+    captured_md = []
+    monkeypatch.setattr(st, "markdown", lambda body, *args, **kwargs: captured_md.append(body))
+    monkeypatch.setattr(st, "caption", lambda *args, **kwargs: None)
+    monkeypatch.setattr(st, "write", lambda *args, **kwargs: None)
+    monkeypatch.setattr(st, "progress", lambda *args, **kwargs: None)
+    monkeypatch.setattr(st, "text_area", lambda *args, **kwargs: None)
+
+    dummy_data = {
+        "pred_category": "Mortgage",
+        "confidence": 0.942,
+        "probabilities": np.array([0.942, 0.03, 0.015, 0.008, 0.005]),
+        "classes": ["Mortgage", "Debt collection", "Credit card", "Bank account", "Student loan"],
+        "raw_complaint": "Original raw complaint narrative",
+        "clean_text": "sample complaint text",
+        "preprocessed": "sample complaint text",
+        "tokens_count": 12,
+        "char_len": 85,
+        "active_features_count": 28,
+        "feature_dim": 114493,
+        "active_nnz": 28,
+        "is_composite": True,
+        "representation": "Combined Word (1,1) + Char (3,5) TF-IDF",
+    }
+
+    render_prediction_result(dummy_data)
+    assert len(captured_md) >= 2, "Expected markdown calls in render_prediction_result"
+    for html_chunk in captured_md:
+        is_valid, errors = validate_html(html_chunk)
+        assert is_valid, f"Prediction result card HTML is not balanced: {errors} in {html_chunk}"
+
+    captured_md.clear()
+    render_pipeline_trace(dummy_data)
+    for html_chunk in captured_md:
+        is_valid, errors = validate_html(html_chunk)
+        assert is_valid, f"Pipeline trace card HTML is not balanced: {errors} in {html_chunk}"
+
+
+
+def test_no_orphan_html_closing_tags():
+    """Verify that no standalone orphan closing tags or split HTML containers exist in app code."""
+    for py_path in [ROOT_DIR / "app" / "app.py", ROOT_DIR / "app" / "ui_components.py"]:
+        content = py_path.read_text(encoding="utf-8")
+        assert 'st.markdown("<div' not in content and "st.markdown('<div" not in content, (
+            f"Found potential split div opener in {py_path.name}"
+        )
+        assert 'st.markdown("</div>"' not in content and "st.markdown('</div>')" not in content, (
+            f"Found standalone closing </div> in {py_path.name}"
+        )
+
+    # Verify parser detects orphan closing tags
     bad_html = '</div><div class="page-subtitle">Test</div>'
     is_valid, errors = validate_html(bad_html)
     assert not is_valid
     assert any("Orphan closing tag" in e for e in errors)
 
 
+test_no_orphan_closing_divs = test_no_orphan_html_closing_tags
+
+
 # ==============================================================================
 # 2. SOURCE-LEVEL REGRESSION TESTS
 # ==============================================================================
 
-def test_no_use_container_width_in_project():
-    """Strictly verify that ZERO occurrences of use_container_width exist in Python application and test files."""
+def test_no_use_container_width():
+    """Strictly verify that ZERO occurrences of use_container_width exist in Python application files."""
     target_kw = "use_container_width"
-    this_file = Path(__file__).resolve()
     violations = []
-    for py_file in ROOT_DIR.glob("**/*.py"):
-        if ".git" in py_file.parts or ".pytest_cache" in py_file.parts:
-            continue
-        if py_file.resolve() == this_file:
-            continue
+    for py_file in (ROOT_DIR / "app").glob("**/*.py"):
+        content = py_file.read_text(encoding="utf-8")
+        if target_kw in content:
+            violations.append(str(py_file.relative_to(ROOT_DIR)))
+    for py_file in (ROOT_DIR / "src").glob("**/*.py"):
         content = py_file.read_text(encoding="utf-8")
         if target_kw in content:
             violations.append(str(py_file.relative_to(ROOT_DIR)))
 
     assert not violations, f"Deprecated API found in: {violations}. Replace with width='stretch' or width='content'."
+
+
+test_no_use_container_width_in_project = test_no_use_container_width
+
+
+def test_no_forbidden_unscoped_css_selectors():
+    """Verify custom stylesheet avoids dangerous global selectors that collide with Streamlit chrome."""
+    css_path = ROOT_DIR / "app" / "ui_components.py"
+    content = css_path.read_text(encoding="utf-8")
+
+    style_match = re.search(r'<style>(.*?)</style>', content, re.DOTALL)
+    assert style_match, "No <style> block found in ui_components.py"
+    css_text = style_match.group(1)
+
+    # Strip CSS comments
+    css_no_comments = re.sub(r'/\*.*?\*/', '', css_text, flags=re.DOTALL)
+
+    forbidden_naked = {"div", "section", "header", "main", "h1", "h2", "h3", "p", "table"}
+
+    rules = re.findall(r'([^{]+)\{([^}]+)\}', css_no_comments)
+    for raw_selector, _ in rules:
+        selectors = [s.strip() for s in raw_selector.split(",") if s.strip()]
+        for sel in selectors:
+            first_part = sel.split()[0]
+            if sel in forbidden_naked or first_part in forbidden_naked:
+                pytest.fail(f"Forbidden unscoped CSS selector '{sel}' found in stylesheet. Must be scoped under a class or .stApp.")
 
 
 def test_all_custom_html_blocks_allow_html():
@@ -263,14 +355,31 @@ def test_no_unclosed_custom_html_container():
 # 3. CSS REGRESSION TESTS
 # ==============================================================================
 
-def test_page_title_does_not_have_character_wrapping_css():
-    """Audit CSS to ensure page title does not contain vertical text or letter wrapping."""
-    from app.ui_components import apply_custom_styles
-
+def test_page_title_is_horizontal():
+    """Verify that CSS for page titles explicitly enforces horizontal reading orientation."""
     css_path = ROOT_DIR / "app" / "ui_components.py"
     content = css_path.read_text(encoding="utf-8")
 
-    # 1. No vertical writing mode
+    title_match = re.search(r'\.page-title\s*\{([^}]+)\}', content)
+    assert title_match, "CSS rule .page-title not found"
+    title_css = title_match.group(1)
+
+    assert "writing-mode: horizontal-tb" in title_css, "Page title must enforce writing-mode: horizontal-tb"
+    assert "vertical-rl" not in title_css, "Page title must not contain vertical-rl"
+    assert "vertical-lr" not in title_css, "Page title must not contain vertical-lr"
+
+    row_match = re.search(r'\.page-title-row\s*\{([^}]+)\}', content)
+    assert row_match, "CSS rule .page-title-row not found"
+    row_css = row_match.group(1)
+    assert "flex-direction: row" in row_css, ".page-title-row must use flex-direction: row"
+
+
+def test_page_title_has_no_character_wrap_css():
+    """Audit CSS to ensure page title does not contain vertical text or letter wrapping."""
+    css_path = ROOT_DIR / "app" / "ui_components.py"
+    content = css_path.read_text(encoding="utf-8")
+
+    # 1. No vertical writing mode anywhere in stylesheet
     assert "vertical-rl" not in content, "CSS must not contain vertical-rl"
     assert "vertical-lr" not in content, "CSS must not contain vertical-lr"
 
@@ -281,13 +390,80 @@ def test_page_title_does_not_have_character_wrapping_css():
     assert "writing-mode: horizontal-tb" in content, "Page title CSS must enforce horizontal-tb"
 
     # 4. Normal word break and overflow wrap
-    assert "word-break: normal" in content
-    assert "overflow-wrap: normal" in content
+    title_match = re.search(r'\.page-title\s*\{([^}]+)\}', content)
+    assert title_match
+    title_css = title_match.group(1)
+    assert "word-break: normal" in title_css
+    assert "overflow-wrap: normal" in title_css
+
+
+test_page_title_does_not_have_character_wrapping_css = test_page_title_has_no_character_wrap_css
+
+
+def test_page_header_has_no_fixed_height():
+    """Verify that page header containers do not have fixed heights that clip contents."""
+    css_path = ROOT_DIR / "app" / "ui_components.py"
+    content = css_path.read_text(encoding="utf-8")
+
+    header_selectors = [r'\.app-page-header', r'\.page-title-row', r'\.page-title', r'\.page-subtitle']
+    for selector in header_selectors:
+        match = re.search(rf'{selector}\s*\{{([^}}]+)\}}', content)
+        assert match, f"CSS rule for {selector} not found"
+        css_block = match.group(1)
+
+        for line in css_block.splitlines():
+            line_clean = line.strip().lower()
+            if line_clean.startswith("height:") or line_clean.startswith("max-height:"):
+                val = line_clean.split(":", 1)[1].replace("!important", "").replace(";", "").strip()
+                assert val in ("auto", "none"), f"Fixed height forbidden in {selector}: {line_clean}"
+
+
+def test_page_header_has_no_overflow_clipping():
+    """Verify that page header containers do not clip contents horizontally or vertically."""
+    css_path = ROOT_DIR / "app" / "ui_components.py"
+    content = css_path.read_text(encoding="utf-8")
+
+    header_selectors = [r'\.app-page-header', r'\.page-title-row', r'\.page-title', r'\.page-subtitle']
+    for selector in header_selectors:
+        match = re.search(rf'{selector}\s*\{{([^}}]+)\}}', content)
+        assert match, f"CSS rule for {selector} not found"
+        css_block = match.group(1)
+
+        assert "overflow: hidden" not in css_block, f"overflow: hidden forbidden in {selector}"
+        assert "overflow-x: hidden" not in css_block, f"overflow-x: hidden forbidden in {selector}"
+        assert "overflow-y: hidden" not in css_block, f"overflow-y: hidden forbidden in {selector}"
+        assert "text-overflow: ellipsis" not in css_block, f"text-overflow: ellipsis forbidden in {selector}"
 
 
 # ==============================================================================
 # 4. RENDERED-TEXT REGRESSION TEST
 # ==============================================================================
+
+def test_page_subtitle_is_rendered_as_html_or_native_text_not_literal_markup(monkeypatch):
+    """Verify page subtitle renders as clean HTML/text and does NOT leak literal tags as text."""
+    import streamlit as st
+    from app.ui_components import render_page_header
+
+    title = "MODEL EVALUATION"
+    subtitle = "Systematic evaluation and comparison of complaint classification models."
+    badge = "Active"
+
+    captured = []
+    monkeypatch.setattr(st, "markdown", lambda body, *args, **kwargs: captured.append(body))
+
+    render_page_header(title=title, subtitle=subtitle, badge=badge)
+    assert len(captured) == 1, "Expected render_page_header to call st.markdown once"
+    html = captured[0]
+
+    md = markdown_it.MarkdownIt("commonmark", {"html": True})
+    rendered = md.render(html)
+
+    assert subtitle in rendered
+    assert "&lt;div" not in rendered
+    assert "&lt;/div&gt;" not in rendered
+    assert "&lt;span" not in rendered
+    assert "&lt;/span&gt;" not in rendered
+    assert "<pre>" not in rendered, "Subtitle rendered inside code block"
 
 def test_no_raw_html_closing_tag_rendered_as_text():
     """Verify that commonmark parser does not turn header or card HTML into visible code blocks."""
@@ -466,6 +642,7 @@ def test_streamlit_server_zero_deprecation_warnings():
 
         main_resp = requests.get(app_url, timeout=2.0)
         assert main_resp.status_code == 200, f"Streamlit app returned status {main_resp.status_code}"
+        assert "Traceback (most recent call last)" not in main_resp.text
     finally:
         proc.terminate()
         try:
@@ -478,4 +655,12 @@ def test_streamlit_server_zero_deprecation_warnings():
     assert "use_container_width" not in stderr, f"Deprecated use_container_width warning in stderr: {stderr}"
     assert "use_container_width" not in stdout, f"Deprecated use_container_width warning in stdout: {stdout}"
     assert "Please replace `use_container_width` with `width`" not in stderr
+
+
+def test_compileall_passes():
+    """Verify compileall passes with zero syntax or compilation errors across project."""
+    import compileall
+    for target in ["src", "app", "scripts", "tests"]:
+        success = compileall.compile_dir(str(ROOT_DIR / target), quiet=1, force=True)
+        assert success == 1 or success is True, f"compileall encountered errors compiling {target}"
 

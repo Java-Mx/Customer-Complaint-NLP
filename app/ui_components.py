@@ -76,6 +76,10 @@ DESIGN_TOKENS: Dict[str, Any] = {
         "md": "6px",
         "lg": "8px",
     },
+    "typography": {
+        "font_sans": '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        "font_mono": '"JetBrains Mono", "SF Mono", Consolas, "Liberation Mono", Menlo, Courier, monospace',
+    },
 }
 
 # Realistic demonstration complaint examples (6 domain-standard + 3 intentionally ambiguous for viva defense)
@@ -293,9 +297,9 @@ def apply_custom_styles() -> None:
         font-family: var(--font-sans) !important;
     }
 
-    /* Compact layout: remove excessive top whitespace */
+    /* Main block container: ensure natural flow safely below Streamlit chrome header */
     .block-container, [data-testid="stMainBlockContainer"], .stMainBlockContainer {
-        padding-top: 1.5rem !important;
+        padding-top: 5rem !important;
         padding-bottom: 2.5rem !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
@@ -303,7 +307,7 @@ def apply_custom_styles() -> None:
     }
 
     /* Subtle divider */
-    hr {
+    .stApp hr {
         margin: 1.15rem 0 !important;
         border: 0 !important;
         border-top: 1px solid var(--border-subtle) !important;
@@ -375,39 +379,39 @@ def apply_custom_styles() -> None:
     /* -------------------------------------------------------------------------
        BUTTONS ACROSS APPLICATION
        ------------------------------------------------------------------------- */
-    div.stButton > button {
+    .stApp div.stButton > button {
         border-radius: var(--radius-md) !important;
         font-weight: 500 !important;
         font-size: 0.82rem !important;
         transition: all 0.15s ease-in-out !important;
     }
-    div.stButton > button[kind="primary"],
-    button[data-testid="stBaseButton-primary"] {
+    .stApp div.stButton > button[kind="primary"],
+    .stApp button[data-testid="stBaseButton-primary"] {
         background-color: var(--accent-primary) !important;
         border: 1px solid var(--accent-border) !important;
         color: #ffffff !important;
         font-weight: 600 !important;
         padding: 0.45rem 1rem !important;
     }
-    div.stButton > button[kind="primary"]:hover {
+    .stApp div.stButton > button[kind="primary"]:hover {
         background-color: var(--accent-hover) !important;
         border-color: #60a5fa !important;
     }
-    div.stButton > button[kind="secondary"],
-    button[data-testid="stBaseButton-secondary"] {
+    .stApp div.stButton > button[kind="secondary"],
+    .stApp button[data-testid="stBaseButton-secondary"] {
         background-color: var(--bg-surface-elevated) !important;
         border: 1px solid var(--border-subtle) !important;
         color: var(--text-secondary) !important;
         padding: 0.45rem 1rem !important;
     }
-    div.stButton > button[kind="secondary"]:hover {
+    .stApp div.stButton > button[kind="secondary"]:hover {
         background-color: var(--bg-surface-hover) !important;
         border-color: var(--border-medium) !important;
         color: var(--text-primary) !important;
     }
 
     /* Demonstration example buttons */
-    .example-btn-area div.stButton > button {
+    .stApp .example-btn-area div.stButton > button {
         font-size: 0.76rem !important;
         padding: 0.32rem 0.55rem !important;
         border-radius: var(--radius-sm) !important;
@@ -416,7 +420,7 @@ def apply_custom_styles() -> None:
         color: var(--text-secondary) !important;
         text-transform: none !important;
     }
-    .example-btn-area div.stButton > button:hover {
+    .stApp .example-btn-area div.stButton > button:hover {
         border-color: var(--accent-border) !important;
         color: var(--text-primary) !important;
         background-color: var(--bg-surface-hover) !important;
@@ -427,10 +431,17 @@ def apply_custom_styles() -> None:
        ------------------------------------------------------------------------- */
     .app-page-header {
         width: 100% !important;
-        margin-bottom: 1rem !important;
+        margin-top: 0 !important;
+        margin-bottom: 1.15rem !important;
+        padding-top: 0.25rem !important;
         padding-bottom: 0.65rem !important;
         border-bottom: 1px solid var(--border-subtle) !important;
         box-sizing: border-box !important;
+        height: auto !important;
+        min-height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        position: relative !important;
     }
     .page-title-row {
         display: flex !important;
@@ -439,23 +450,30 @@ def apply_custom_styles() -> None:
         flex-wrap: wrap !important;
         gap: 0.65rem !important;
         width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
     }
     .page-title {
-        font-size: 1.35rem !important;
+        font-size: 1.45rem !important;
         font-weight: 700 !important;
         letter-spacing: -0.01em !important;
         color: var(--text-primary) !important;
         margin: 0 !important;
         padding: 0 !important;
         text-transform: uppercase !important;
-        line-height: 1.3 !important;
+        line-height: 1.35 !important;
         white-space: normal !important;
         word-break: normal !important;
         overflow-wrap: normal !important;
         writing-mode: horizontal-tb !important;
         display: inline-block !important;
+        flex-shrink: 0 !important;
         width: auto !important;
         max-width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
     }
     .page-badge {
         font-size: 0.70rem !important;
@@ -470,21 +488,28 @@ def apply_custom_styles() -> None:
         display: inline-block !important;
     }
     .page-subtitle {
-        font-size: 0.84rem !important;
+        font-size: 0.88rem !important;
         color: var(--text-muted) !important;
-        margin-top: 0.25rem !important;
+        margin-top: 0.35rem !important;
+        margin-bottom: 0 !important;
         line-height: 1.45 !important;
         white-space: normal !important;
         word-break: normal !important;
         overflow-wrap: normal !important;
         writing-mode: horizontal-tb !important;
         display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
     }
 
     .app-section-header {
         width: 100% !important;
         margin-top: 0.85rem !important;
         margin-bottom: 0.55rem !important;
+        height: auto !important;
+        overflow: visible !important;
     }
     .section-title {
         font-size: 0.95rem !important;
@@ -496,6 +521,8 @@ def apply_custom_styles() -> None:
         word-break: normal !important;
         overflow-wrap: normal !important;
         display: block !important;
+        height: auto !important;
+        overflow: visible !important;
     }
     .section-desc {
         font-size: 0.80rem !important;
@@ -506,6 +533,8 @@ def apply_custom_styles() -> None:
         word-break: normal !important;
         overflow-wrap: normal !important;
         display: block !important;
+        height: auto !important;
+        overflow: visible !important;
     }
 
     /* -------------------------------------------------------------------------
@@ -730,13 +759,13 @@ def apply_custom_styles() -> None:
         overflow: hidden !important;
         background-color: var(--bg-surface) !important;
     }
-    table {
+    .stApp table {
         border-collapse: collapse !important;
         width: 100% !important;
         font-size: 0.80rem !important;
         color: var(--text-secondary) !important;
     }
-    table th {
+    .stApp table th {
         background-color: var(--bg-surface-elevated) !important;
         color: var(--text-muted) !important;
         font-weight: 600 !important;
@@ -747,26 +776,35 @@ def apply_custom_styles() -> None:
         border-bottom: 1px solid var(--border-subtle) !important;
         text-align: left !important;
     }
-    table td {
+    .stApp table td {
         padding: 0.45rem 0.7rem !important;
         border-bottom: 1px solid var(--border-subtle) !important;
         line-height: 1.4 !important;
     }
-    table tr:hover td {
+    .stApp table tr:hover td {
         background-color: var(--bg-surface-elevated) !important;
     }
 
     /* Unified Inputs and Text Areas */
     [data-testid="stTextInput"] input,
-    [data-testid="stTextArea"] textarea {
+    [data-testid="stTextArea"] textarea,
+    div[data-baseweb="input"] input,
+    div[data-baseweb="textarea"] textarea,
+    .stTextInput input,
+    .stTextArea textarea {
         background-color: var(--bg-surface) !important;
         border: 1px solid var(--border-subtle) !important;
         border-radius: var(--radius-md) !important;
         color: var(--text-primary) !important;
-        font-size: 0.82rem !important;
+        font-size: 0.96rem !important;
+        line-height: 1.5 !important;
     }
     [data-testid="stTextInput"] input:focus,
-    [data-testid="stTextArea"] textarea:focus {
+    [data-testid="stTextArea"] textarea:focus,
+    div[data-baseweb="input"] input:focus,
+    div[data-baseweb="textarea"] textarea:focus,
+    .stTextInput input:focus,
+    .stTextArea textarea:focus {
         border-color: var(--accent-border) !important;
         box-shadow: 0 0 0 1px var(--accent-border) !important;
     }

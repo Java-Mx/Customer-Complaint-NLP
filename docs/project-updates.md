@@ -283,3 +283,23 @@ This document serves as the permanent chronological engineering, modeling, and r
   - Python compilation validated: `python -m compileall src app scripts tests` passed cleanly.
   - Headless Streamlit server verified: HTTP 200 on health check and main application with zero warnings.
 
+---
+
+### Milestone 18: Final Streamlit UI Architecture Repair, Clearance Fix & Enhanced UI Regression Suite
+
+- **Objective:** Fix top title clipping caused by Streamlit toolbar overlap, increase input box font size, scope all custom CSS selectors, eliminate potential layout regressions, and expand the UI regression test suite with the 12 required architectural assertions.
+- **Root Causes Identified & Repaired:**
+  1. **Page Title Top Clipping & Toolbar Overlap:** In Streamlit, `header[data-testid="stHeader"]` occupies a fixed height of `3.75rem` (60px) at the top of the browser viewport. Previous compacting CSS set `.block-container` `padding-top: 1.5rem !important;` (24px). Because 24px < 60px, the top 36px of `.block-container`—where the page header resides—was shifted underneath the fixed Streamlit header toolbar, causing the top half of the page title to be clipped and partially hidden behind the header region. Corrected by setting `.block-container` `padding-top: 5rem !important;`, providing 1.25rem of natural breathing clearance below Streamlit's chrome and ensuring the title is 100% visible in natural document flow without clipping or vertical offset hacks.
+  2. **Page Header Architectural Safety:** Configured `.app-page-header`, `.page-title-row`, `.page-title`, and `.page-subtitle` with `height: auto !important;`, `overflow: visible !important;`, `position: relative !important;`, and `writing-mode: horizontal-tb !important;`. Confirmed zero fixed heights, zero overflow clipping, and zero character-by-character wrapping.
+  3. **Input Box Font Size Enhancement:** Increased font size of complaint text inputs and text areas from `0.82rem` to `0.96rem` (`line-height: 1.5`) across BaseWeb input containers (`[data-testid="stTextInput"] input`, `[data-testid="stTextArea"] textarea`, `div[data-baseweb="input"] input`, `div[data-baseweb="textarea"] textarea`) for crisp readability during live demonstrations.
+  4. **Strict CSS Selector Scoping:** Audited all CSS rules to eliminate unscoped global elements (`table`, `hr`, `div.stButton > button`). Scoped under `.stApp` and scoped utility classes to prevent cross-contamination with Streamlit native layout elements.
+  5. **Streamlit Width API Migration Verified:** Maintained 0 occurrences of deprecated `use_container_width` across all application modules, confirmed with zero deprecation warnings on server startup.
+  6. **Comprehensive UI Regression Tests:** Added all 12 required test cases (`test_page_title_is_horizontal`, `test_page_title_has_no_character_wrap_css`, `test_page_header_has_no_fixed_height`, `test_page_header_has_no_overflow_clipping`, `test_page_header_html_is_balanced`, `test_section_header_html_is_balanced`, `test_metric_card_html_is_balanced`, `test_status_card_html_is_balanced`, `test_no_use_container_width`, `test_no_forbidden_unscoped_css_selectors`, `test_no_orphan_html_closing_tags`, `test_page_subtitle_is_rendered_as_html_or_native_text_not_literal_markup`) alongside full AppTest module navigation, real Playwright Chromium browser geometry validation (`test_playwright_rendered_geometry_and_no_clipping`), live server HTTP 200 checks, and `compileall` validation. Tests inspect real UI helper implementations via live invocation and monkeypatched capture rather than mock strings.
+  7. **Strict Preservation of NLP System:** Zero changes made to preprocessing, TF-IDF, classification, similarity retrieval, taxonomy, evaluation benchmarks, or model binaries.
+- **Testing & Verification:**
+  - Full test suite passing (`pytest -q`).
+  - Python compilation validated: `compileall` passes cleanly on `src`, `app`, `scripts`, `tests`.
+  - Headless Streamlit server verified: HTTP 200 on health check and main application with zero warnings.
+  - Headless Chromium (Playwright) verified: exact bounding-box layout confirms title sits strictly below Streamlit toolbar (`y >= 60px`), horizontal orientation, and no clipping across all 9 modules.
+
+
