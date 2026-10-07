@@ -165,3 +165,79 @@ class TestPreprocessSeries:
     def test_invalid_type_raises(self):
         with pytest.raises(TypeError, match="Expected pandas Series"):
             preprocess_series(["not", "a", "series"])
+
+
+class TestMinimalPreprocessing:
+    """Unit tests for minimal preprocessing mode (retains syntax, punctuation, stopwords, and negation)."""
+
+    def test_minimal_lowercasing_and_whitespace(self):
+        text = "  UNEXPECTED \n Charges \t on  Account!  "
+        result = clean_text(text, mode="minimal")
+        assert result == "unexpected charges on account!"
+
+    def test_minimal_retains_punctuation_and_symbols(self):
+        text = "Overdraft fee: $35.00!! Account #12345 -- why was this applied???"
+        result = preprocess_text(text, mode="minimal")
+        assert ":" in result
+        assert "$35.00!!" in result
+        assert "#12345" in result
+        assert "--" in result
+        assert "???" in result
+        assert result == "overdraft fee: $35.00!! account #12345 -- why was this applied???"
+
+    def test_minimal_retains_digits(self):
+        text = "Charged $500 in 2022 on account 987654 at 5% rate."
+        result = preprocess_text(text, mode="minimal")
+        assert "500" in result
+        assert "2022" in result
+        assert "987654" in result
+        assert "5%" in result
+
+    def test_minimal_retains_stopwords_and_negations(self):
+        text = "I did not receive the statement and I wasn't notified about this fee."
+        result = preprocess_text(text, mode="minimal")
+        # In standard mode, 'i', 'did', 'the', 'and', 'about', 'this' are stripped.
+        # In minimal mode, all words and negations are preserved.
+        assert "i did not receive the statement and i wasn't notified about this fee." == result
+
+    def test_minimal_retains_redaction_masks(self):
+        text = "Contacted XXXX on XX/XX/2023 regarding account XXXX."
+        result = preprocess_text(text, mode="minimal")
+        assert "xxxx" in result
+        assert "xx/xx/2023" in result
+
+    def test_empty_and_none_minimal(self):
+        assert preprocess_text("", mode="minimal") == ""
+        assert preprocess_text("   ", mode="minimal") == ""
+        assert preprocess_text(None, mode="minimal") == ""
+        assert clean_text(None, mode="minimal") == ""
+
+    def test_mode_parameter_standard_vs_minimal(self):
+        sample = "I did NOT get a refund of $50 on my credit card!"
+        std = preprocess_text(sample, mode="standard")
+        min_p = preprocess_text(sample, mode="minimal")
+
+        # Standard strips stopwords and punctuation
+        assert "get refund 50 credit card" == std
+        # Minimal preserves stopwords, punctuation, negation
+        assert "i did not get a refund of $50 on my credit card!" == min_p
+
+    def test_preprocess_series_minimal(self):
+        series = pd.Series([
+            "Late fee of $25 on card!",
+            "Did not receive notice.",
+            None,
+        ], index=["c1", "c2", "c3"])
+
+        processed = preprocess_series(series, mode="minimal")
+        assert processed["c1"] == "late fee of $25 on card!"
+        assert processed["c2"] == "did not receive notice."
+        assert processed["c3"] == ""
+
+    def test_invalid_mode_raises(self):
+        with pytest.raises(ValueError, match="Unsupported.*mode"):
+            clean_text("test", mode="unsupported")
+        with pytest.raises(ValueError, match="Unsupported.*mode"):
+            preprocess_text("test", mode="unsupported")
+        with pytest.raises(ValueError, match="Unsupported.*mode"):
+            preprocess_series(pd.Series(["test"]), mode="unsupported")

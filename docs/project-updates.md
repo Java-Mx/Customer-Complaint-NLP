@@ -205,3 +205,34 @@ This document serves as the permanent chronological engineering, modeling, and r
 - **Tests & Verification:**
   - Added unit tests for leakage-safe model selection in `tests/test_model_selection.py` (9 tests) and pipeline verification in `tests/test_run_search.py` (2 tests). Total test suite expanded to **226 tests** (all passing).
   - Verified clean syntax across all modules with `compileall`.
+
+---
+
+### Milestone 15: Post-Audit Controlled Model Improvement & Representation Optimization
+
+- **Objective:** Implement the highest-value classical improvements established by the comprehensive model plateau audit while rigorously preserving the original 18-category task as the primary baseline.
+- **Architectural Constraints Adhered To:**
+  - Strictly classical NLP: TF-IDF, unigrams, character n-grams, Logistic Regression.
+  - Zero BERT, Transformers, LLMs, or external APIs.
+  - Untouched 5,000 holdout test set (stratified, random_state=42) evaluated exactly once at completion.
+- **Key Deliverables & Experiments:**
+  1. **Reusable Preprocessing Engine (`src/preprocessing.py`):**
+     - Implemented `mode="standard"` (legacy regex cleaning, URL/email/stopword/punctuation removal) and `mode="minimal"` (lowercase and whitespace collapsing only; preserving punctuation, digits, stopwords, and negation context).
+     - Full backward compatibility across `clean_text()`, `tokenize()`, `preprocess_text()`, and vectorized `preprocess_series()`.
+  2. **Controlled 18-Class Improvement:**
+     - Evaluated minimal preprocessing against standard baseline on identical 16k train / 4k val split using production TF-IDF and Logistic Regression ($C=2.0$, balanced).
+     - Minimal preprocessing elevated validation accuracy from **69.95% to 71.33% (+1.38 pp)** and Macro F1 from **51.84% to 53.50% (+1.66 pp)** by preserving syntactic boundaries for character n-grams.
+  3. **Formal 11-Class Taxonomy Normalization:**
+     - Benchmarked conservative taxonomy v1 (`config/taxonomy_v1_conservative.json`), collapsing CFPB-documented administrative renames.
+     - Normalized 11-class task achieves **82.10% validation accuracy** and **63.33% Macro F1** under standard preprocessing, and **82.88% accuracy / 64.50% Macro F1** under minimal preprocessing.
+  4. **Hierarchical Classical Classifier Investigation:**
+     - Evaluated text-only 2-stage hierarchy (Stage 1 predicts 11 product groups; Stage 2 trains specialist text classifiers for multi-label variant groups).
+     - Confirmed that text-only local classifiers face the identical temporal barrier: intra-group historical variants share indistinguishable vocabularies, confirming that metadata (filing date) rather than architectural complexity is needed for administrative separation.
+  5. **Controlled Metrics & Artifact Generation:**
+     - Generated `results/model_improvement_comparison.csv`, `results/taxonomy_model_comparison.csv`, and `results/hierarchical_comparison.csv`.
+     - Produced granular error decomposition in `results/post_audit_error_analysis.json` and one-shot test metrics in `results/post_audit_test_metrics.json`.
+  6. **Interactive Streamlit Web Dashboard:**
+     - Added dedicated Post-Audit Model Comparison view with interactive Plotly visualization, executive KPI cards, and formal benchmark tables.
+- **Testing & Verification:**
+  - Added unit tests in `tests/test_preprocessing.py`, `tests/test_ui_charts.py`, and `tests/test_post_audit_improvements.py`.
+  - All test suites passing; verified with `compileall` and Streamlit HTTP 200 health check.

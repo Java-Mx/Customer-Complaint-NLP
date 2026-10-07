@@ -1,0 +1,253 @@
+{
+  "rows": 25000,
+  "date_parse_failures": 0,
+  "date_min": "2015-03-19",
+  "date_max": "2018-04-24",
+  "dup_complaint_ids": 0,
+  "empty_narratives": 0,
+  "raw_exact_dup_rows": 188,
+  "words_quantiles": {
+    "0": 1.0,
+    "0.01": 10.0,
+    "0.05": 24.0,
+    "0.25": 71.0,
+    "0.5": 134.0,
+    "0.75": 249.0,
+    "0.95": 579.0,
+    "0.99": 788.0099999999984,
+    "1": 4064.0
+  },
+  "lt10_words": 199,
+  "lt20_words": 897,
+  "gt500_words": 1793,
+  "gt1000_words": 130,
+  "with_redaction": 21045,
+  "mean_redactions": 12.08248,
+  "median_words_missing_text_after_clean": 1,
+  "cleaned_dup_rows_in_groups": 413,
+  "cleaned_dup_groups": 154,
+  "cleaned_dup_groups_label_conflict": 9,
+  "cleaned_dup_conflict_examples": [
+    [
+      "Bank account or service",
+      "Credit reporting",
+      "Vehicle loan or lease"
+    ],
+    [
+      "Debt collection",
+      "Payday loan"
+    ],
+    [
+      "Consumer Loan",
+      "Credit card"
+    ],
+    [
+      "Credit reporting",
+      "Student loan"
+    ],
+    [
+      "Credit reporting, credit repair services, or other personal consumer reports",
+      "Debt collection"
+    ],
+    [
+      "Consumer Loan",
+      "Credit card"
+    ],
+    [
+      "Credit card",
+      "Mortgage",
+      "Vehicle loan or lease"
+    ],
+    [
+      "Credit card",
+      "Credit card or prepaid card",
+      "Vehicle loan or lease"
+    ],
+    [
+      "Credit card",
+      "Credit reporting"
+    ]
+  ],
+  "raw_dup_groups_label_conflict_among_variants_only": 0,
+  "top_templates_first6": {
+    "xxxx xxxx xxxx xxxx xxxx xxxx": 95,
+    "i am a victim of identity": 70,
+    "to whom it may concern i": 64,
+    "there are many mistakes appear in": 47,
+    "i am filing this complaint because": 43,
+    "i was shocked when i reviewed": 42,
+    "equifax mishandled my information which has": 31,
+    "on xx xx xxxx i received": 31
+  },
+  "imbalance_ratio_max_over_min": 1943.3333333333333,
+  "majority_prop": 0.2332,
+  "min_support": 3,
+  "classes_lt_train": {
+    "10": 1,
+    "25": 2,
+    "50": 2,
+    "100": 4,
+    "250": 8
+  },
+  "n_classes": 18,
+  "variant_group_date_only_accuracy": {
+    "Credit Reporting & Repair": {
+      "n_val": 1141,
+      "date_only_variant_acc": 1.0,
+      "majority_variant_acc": 0.595968448729185,
+      "lifespans": {
+        "Credit reporting": [
+          "2015-03-20",
+          "2017-04-21",
+          2882
+        ],
+        "Credit reporting, credit repair services, or other personal consumer reports": [
+          "2017-04-24",
+          "2018-04-24",
+          4250
+        ]
+      }
+    },
+    "Credit Card & Prepaid": {
+      "n_val": 446,
+      "date_only_variant_acc": 0.9439461883408071,
+      "majority_variant_acc": 0.6031390134529148,
+      "lifespans": {
+        "Credit card": [
+          "2015-03-20",
+          "2017-04-21",
+          1680
+        ],
+        "Credit card or prepaid card": [
+          "2017-04-24",
+          "2018-04-14",
+          974
+        ],
+        "Prepaid card": [
+          "2015-03-23",
+          "2017-04-07",
+          132
+        ]
+      }
+    },
+    "Banking Accounts": {
+      "n_val": 313,
+      "date_only_variant_acc": 1.0,
+      "majority_variant_acc": 0.6869009584664537,
+      "lifespans": {
+        "Bank account or service": [
+          "2015-03-19",
+          "2017-04-21",
+          1346
+        ],
+        "Checking or savings account": [
+          "2017-04-24",
+          "2018-04-16",
+          613
+        ]
+      }
+    },
+    "Money Transfer & Services": {
+      "n_val": 68,
+      "date_only_variant_acc": 1.0,
+      "majority_variant_acc": 0.6617647058823529,
+      "lifespans": {
+        "Money transfers": [
+          "2015-03-20",
+          "2017-04-19",
+          144
+        ],
+        "Money transfer, virtual currency, or money service": [
+          "2017-04-24",
+          "2018-04-13",
+          282
+        ],
+        "Virtual currency": [
+          "2016-10-21",
+          "2017-02-08",
+          3
+        ]
+      }
+    },
+    "Consumer & Small Dollar Loans": {
+      "n_val": 58,
+      "date_only_variant_acc": 1.0,
+      "majority_variant_acc": 0.5344827586206896,
+      "lifespans": {
+        "Payday loan": [
+          "2015-03-19",
+          "2017-04-11",
+          169
+        ],
+        "Payday loan, title loan, or personal loan": [
+          "2017-04-24",
+          "2018-04-13",
+          192
+        ]
+      }
+    }
+  },
+  "metadata_lookup_baselines_val": {
+    "Issue": {
+      "val_acc": 0.98225,
+      "val_macro_f1": 0.8916560169475758,
+      "coverage": 0.99925,
+      "n_levels_train": 149
+    },
+    "Sub-product": {
+      "val_acc": 0.88925,
+      "val_macro_f1": 0.7263884659430067,
+      "coverage": 0.99975,
+      "n_levels_train": 72
+    },
+    "Company": {
+      "val_acc": 0.60225,
+      "val_macro_f1": 0.3473297192701607,
+      "coverage": 0.962,
+      "n_levels_train": 1320
+    },
+    "State": {
+      "val_acc": 0.2335,
+      "val_macro_f1": 0.04725167265278732,
+      "coverage": 1.0,
+      "n_levels_train": 58
+    },
+    "Submitted via": {
+      "val_acc": 0.23325,
+      "val_macro_f1": 0.022251105996828086,
+      "coverage": 1.0,
+      "n_levels_train": 1
+    },
+    "year": {
+      "val_acc": 0.2925,
+      "val_macro_f1": 0.0492085319850826,
+      "coverage": 1.0,
+      "n_levels_train": 4
+    },
+    "Issue+Sub-product": {
+      "val_acc": 0.9925,
+      "val_macro_f1": 0.9435576990219746,
+      "coverage": 0.99525,
+      "n_levels_train": 459
+    },
+    "year+Issue": {
+      "val_acc": 0.98225,
+      "val_macro_f1": 0.8941772321789698,
+      "coverage": 0.99575,
+      "n_levels_train": 348
+    },
+    "year+Issue+Sub-product": {
+      "val_acc": 0.98875,
+      "val_macro_f1": 0.9312329280586621,
+      "coverage": 0.98775,
+      "n_levels_train": 942
+    },
+    "majority_class_baseline": 0.23325
+  },
+  "issue_missing_pct": 0.0,
+  "subproduct_missing_pct": 18.924,
+  "n_unique_issue": 154,
+  "n_unique_subproduct": 73,
+  "issue_purity_weighted": 0.9822,
+  "issues_mapping_to_single_product_pct": 85.06493506493507
+}

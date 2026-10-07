@@ -440,3 +440,103 @@ def create_confusion_matrix_heatmap(err_df: pd.DataFrame, per_cat_df: pd.DataFra
     fig.update_xaxes(tickangle=45, tickfont=dict(color=TEXT_COLOR, size=9))
     fig.update_yaxes(autorange="reversed", tickfont=dict(color=TEXT_COLOR, size=9))
     return fig
+
+
+def create_post_audit_model_comparison_chart(df: pd.DataFrame, use_test_metrics: bool = True) -> go.Figure:
+    """Create interactive grouped bar chart comparing Original 18-Class, Improved 18-Class, and Normalized 11-Class models.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame from results/model_improvement_comparison.csv.
+    use_test_metrics : bool, default=True
+        Whether to display holdout test metrics or validation metrics.
+
+    Returns
+    -------
+    go.Figure
+        Dark-themed Plotly figure displaying Accuracy, Macro F1, and Weighted F1 across the three model formulations.
+    """
+    display_metrics = ["Accuracy", "Macro F1", "Weighted F1"]
+
+    acc_col = "test_accuracy" if use_test_metrics and "test_accuracy" in df.columns else "accuracy"
+    mf1_col = "test_macro_f1" if use_test_metrics and "test_macro_f1" in df.columns else "macro_f1"
+    wf1_col = "test_weighted_f1" if use_test_metrics and "test_weighted_f1" in df.columns else "weighted_f1"
+
+    def get_vals(exp_pattern: str, tax_pattern: str) -> list[float]:
+        mask = df["experiment"].str.contains(exp_pattern, case=False, na=False)
+        if tax_pattern:
+            mask = mask & df["taxonomy"].str.contains(tax_pattern, case=False, na=False)
+        matched = df[mask]
+        if not matched.empty:
+            row = matched.iloc[0]
+            acc = float(row[acc_col]) * 100 if float(row[acc_col]) <= 1.0 else float(row[acc_col])
+            mf1 = float(row[mf1_col]) * 100 if float(row[mf1_col]) <= 1.0 else float(row[mf1_col])
+            wf1 = float(row[wf1_col]) * 100 if float(row[wf1_col]) <= 1.0 else float(row[wf1_col])
+            return [acc, mf1, wf1]
+        return [0.0, 0.0, 0.0]
+
+    base_vals = get_vals("Baseline", "18")
+    imp_vals = get_vals("Minimal", "18")
+    norm_vals = get_vals("Minimal", "11")
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            name="Original 18-Class Baseline (Standard Preprocessing)",
+            x=display_metrics,
+            y=base_vals,
+            text=[f"{v:.2f}%" for v in base_vals],
+            textposition="outside",
+            textfont=dict(color=MUTED_TEXT, size=10),
+            marker_color=SECONDARY_SLATE,
+            hovertemplate="<b>Original 18-Class Baseline</b><br>Metric: %{x}<br>Score: %{y:.2f}%<extra></extra>",
+        )
+    )
+    fig.add_trace(
+        go.Bar(
+            name="Improved 18-Class (Minimal Preprocessing)",
+            x=display_metrics,
+            y=imp_vals,
+            text=[f"{v:.2f}%" for v in imp_vals],
+            textposition="outside",
+            textfont=dict(color="#93c5fd", size=10),
+            marker_color=PRIMARY_BLUE,
+            hovertemplate="<b>Improved 18-Class Model</b><br>Metric: %{x}<br>Score: %{y:.2f}%<extra></extra>",
+        )
+    )
+    fig.add_trace(
+        go.Bar(
+            name="Normalized 11-Class (Conservative Taxonomy)",
+            x=display_metrics,
+            y=norm_vals,
+            text=[f"{v:.2f}%" for v in norm_vals],
+            textposition="outside",
+            textfont=dict(color="#a7f3d0", size=10),
+            marker_color=ACCENT_EMERALD,
+            hovertemplate="<b>Normalized 11-Class Model</b><br>Metric: %{x}<br>Score: %{y:.2f}%<extra></extra>",
+        )
+    )
+
+    part_label = "Holdout Test Set (N=5,000)" if use_test_metrics else "Validation Set (N=4,000)"
+    fig.update_layout(
+        barmode="group",
+        bargap=0.25,
+        bargroupgap=0.1,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="left",
+            x=0.01,
+            font=dict(color=MUTED_TEXT, size=10),
+        ),
+    )
+    fig.update_yaxes(range=[0, 100])
+    _apply_dark_theme(
+        fig,
+        title=f"Post-Audit Model Comparison: Original 18-Class vs. Improved vs. Normalized 11-Class ({part_label})",
+        y_title="Score (%)",
+        height=400,
+    )
+    return fig

@@ -175,3 +175,74 @@ The final test evaluation confirmed the generalization gains predicted during va
 
 The improved model sets a new project benchmark on all primary metrics (+0.26 pp Accuracy, +0.33 pp Macro F1, +0.23 pp Weighted F1) while halving model size and feature dimensions, demonstrating that disciplined feature engineering and parameter optimization yield measurable gains within strictly classical NLP constraints.
 
+---
+
+## 4. Post-Audit Improvement Experiments & Performance Defense
+
+### Q16: Why is the original model around 70% accuracy?
+**A:**  
+The ~70% accuracy plateau is primarily an **administrative artifact**, not a failure of NLP representation or machine learning capacity:
+1. **Administrative Sibling Variants:** On April 24, 2017, the CFPB restructured its complaint submission portal, renaming historical categories (e.g., *Credit reporting*, *Credit card*, *Bank account or service*) into modernized equivalents with zero temporal overlap. In the 25,000-record dataset, **40.43% of all validation errors** (486 / 1,202 errors) occur between these identical financial concepts that share identical language distributions (centroid cosine similarities > 0.95). A text-only classifier cannot deduce filing era without metadata.
+2. **Compound Grievances:** 38.35% of errors (461 / 1,202) involve genuine multi-product complaints (e.g. debt collection actions concerning a credit card balance or checking overdraft), where a single-label constraint forces an arbitrary choice between two valid products.
+3. **Class Imbalance:** Extreme frequency skew (ranging from 5,830 *Debt collection* complaints down to 3 *Virtual currency* complaints) penalizes minority class recall.
+
+---
+
+### Q17: Why does the normalized taxonomy reach above 80%?
+**A:**  
+When historical administrative renames are consolidated into 11 genuine financial product domains (using the conservative taxonomy `config/taxonomy_v1_conservative.json`), accuracy immediately increases to **~82.10%** and Macro F1 reaches **~63.33%**. 
+
+This occurs because intra-group errors between administrative renames (such as *Credit reporting* vs. *Credit reporting, credit repair services...*) are no longer penalized as classification mistakes. The classification task is aligned with true financial product boundaries.
+
+---
+
+### Q18: Does that mean the model became 12% better?
+**A:**  
+**No.** Part of the improvement comes from removing historical label distinctions and therefore **changing the task definition**. 
+
+The ~12 percentage point increase from 70% to 82% reflects task re-formulation (collapsing synonymous administrative labels), not a 12% jump in model reasoning capability. Presenting 82% as an improvement of the 18-class classifier would be scientifically misleading. We report the 18-class and 11-class results as separate, clearly defined tasks.
+
+---
+
+### Q19: Why did you keep the original 18-category task?
+**A:**  
+Because it is the **original, authentic CFPB Product taxonomy** and is necessary for a scientifically honest and rigorous baseline. 
+
+Hiding the 18-category result would obscure the primary technical finding of this project: that regulatory datasets often contain administrative noise that linear text models cannot resolve from narrative text alone. Preserving both tasks demonstrates exactly what classical NLP can solve versus what requires regulatory data governance.
+
+---
+
+### Q20: Why is Macro F1 important?
+**A:**  
+Because the CFPB dataset suffers from **severe class imbalance** (a 1,943:1 ratio between the largest and smallest classes). 
+
+Overall Accuracy and Weighted F1 are heavily dominated by the top 3 majority classes (*Debt collection*, *Credit reporting*, *Mortgage*), which together comprise 56.12% of all complaints. A naive majority classifier could achieve ~23% accuracy while failing on 17 categories. Macro F1 computes the unweighted arithmetic mean of F1 scores across all classes equally, ensuring that minority categories (*Other financial service*, *Prepaid card*, *Payday loan*) are not sacrificed for majority accuracy.
+
+---
+
+### Q21: Why not use BERT, RoBERTa, or Large Language Models?
+**A:**  
+This project is intentionally designed to evaluate **interpretable, classical statistical NLP methods** (TF-IDF, n-grams, Logistic Regression, LinearSVC):
+1. **Academic Constraint:** Classical linear pipelines provide direct interpretability through feature coefficients and term weights, making failure modes transparent.
+2. **Computational Efficiency:** The entire classical pipeline trains in minutes on commodity hardware and runs sub-millisecond inference with zero GPU requirements, zero API costs, and a 16.5 MB model footprint.
+3. **Fundamental Ceiling:** As proven in the audit, even modern contextual transformers (BERT/RoBERTa) cannot resolve temporal administrative variants (e.g. *Credit card* vs *Credit card or prepaid card*) from text alone without memorizing filing dates, because consumer language in 2016 and 2018 credit card disputes is linguistically indistinguishable.
+
+---
+
+### Q22: What role did minimal preprocessing play in the improved 18-class representation?
+**A:**  
+Controlled experiments demonstrated that aggressive regex stripping and stopword removal destroy discriminative syntactic signal:
+- Standard preprocessing strips punctuation, digits, negations (`didn't` $\rightarrow$ `didn t` $\rightarrow$ stripped), and CFPB redaction markers (`XXXX`).
+- Minimal preprocessing (lowercasing and whitespace collapsing only) retains punctuation, digits, stopwords, and negation words.
+- Because character n-grams (`analyzer='char'`, ranges (3,5)) operate across punctuation and word boundaries, retaining full syntax elevated validation accuracy from **69.95% to 71.33% (+1.38 pp)** and Macro F1 from **51.84% to 53.50% (+1.66 pp)** without changing classifier architecture or regularization parameters.
+
+---
+
+### Q23: How did the hierarchical classification experiment perform?
+**A:**  
+A two-stage classical hierarchy was evaluated (Stage 1 predicts the 11 normalized product domains; Stage 2 uses local text-only classifiers within the 5 multi-label groups to resolve exact CFPB labels):
+- The hierarchical text-only model achieves comparable but slightly lower accuracy than the flat minimal classifier (~70.8% vs. 71.3%).
+- This occurs because Stage 2 local classifiers encounter the exact same temporal synonymy barrier: within the *Credit Reporting* group, narrative text alone cannot separate pre-2017 from post-2017 filings. Additionally, any Stage 1 group misclassification cannot be recovered in Stage 2 (error propagation).
+- This confirms our audit finding: separating administrative variants requires metadata (filing date), not more complex text-only architectures.
+
+

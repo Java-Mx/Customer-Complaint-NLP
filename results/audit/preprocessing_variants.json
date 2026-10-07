@@ -1,0 +1,60 @@
+{
+  "train_docs_with_not_or_nt": 84.675,
+  "current_pipeline_turns_nt_into_tokens": "didn t receive t pay refund fair",
+  "A current": {
+    "acc": 0.6995,
+    "macro_f1": 0.5183603041965342,
+    "macro_rec": 0.5177878619583389,
+    "weighted_f1": 0.6982946219288559,
+    "features": 109228,
+    "val_group_acc_v1": 0.821
+  },
+  "B minimal (lowercase+whitespace only; punctuation, XXXX, stopwords kept)": {
+    "acc": 0.71325,
+    "macro_f1": 0.5350100642830149,
+    "macro_rec": 0.5313130125211789,
+    "weighted_f1": 0.7125066234154789,
+    "features": 113349,
+    "val_group_acc_v1": 0.82875
+  },
+  "C no stopword removal": {
+    "acc": 0.70175,
+    "macro_f1": 0.5138426465511342,
+    "macro_rec": 0.5093105495361723,
+    "weighted_f1": 0.7004874602498999,
+    "features": 110575,
+    "val_group_acc_v1": 0.82325
+  },
+  "D current + ! ? kept as tokens": {
+    "acc": 0.6995,
+    "macro_f1": 0.5155737936306708,
+    "macro_rec": 0.5144424988001806,
+    "weighted_f1": 0.6984816412515127,
+    "features": 109451,
+    "val_group_acc_v1": 0.821
+  },
+  "E current + $ % kept as tokens": {
+    "acc": 0.698,
+    "macro_f1": 0.5140444183696706,
+    "macro_rec": 0.5147083211563074,
+    "weighted_f1": 0.6970202903413295,
+    "features": 107439,
+    "val_group_acc_v1": 0.8205
+  },
+  "F current + negation preserved (n't->not, not/no kept)": {
+    "acc": 0.69875,
+    "macro_f1": 0.5157541873328573,
+    "macro_rec": 0.5154045564684772,
+    "weighted_f1": 0.6973745637117613,
+    "features": 108950,
+    "val_group_acc_v1": 0.8225
+  },
+  "G current + redaction mask kept as token": {
+    "acc": 0.70275,
+    "macro_f1": 0.5158025677397458,
+    "macro_rec": 0.5153025980835573,
+    "weighted_f1": 0.70133442226336,
+    "features": 108124,
+    "val_group_acc_v1": 0.8215
+  }
+}

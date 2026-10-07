@@ -272,6 +272,43 @@ The supervised classification engine operates on a classical machine learning pi
 
 ---
 
+## Model Performance
+
+### Original 18-Class Task
+Current primary baseline on untouched holdout test set ($N=5,000$):
+- **Holdout Test Accuracy**: **69.82%** (3,491 / 5,000)
+- **Holdout Test Macro F1**: **50.88%**
+- **Holdout Test Weighted F1**: **69.78%**
+- **Internal Validation ($N=4,000$)**: Accuracy **69.95%**, Macro F1 **51.84%**
+
+### Improved 18-Class Task
+Representational optimization via minimal preprocessing (retaining punctuation, digits, stopwords, and negation context while preserving character n-gram boundaries):
+- **Internal Validation ($N=4,000$)**:
+  - Accuracy: **71.33%** (+1.38 pp vs. baseline 69.95%)
+  - Macro F1: **53.50%** (+1.66 pp vs. baseline 51.84%)
+  - Weighted F1: **71.25%** (+1.42 pp vs. baseline 69.83%)
+- **Holdout Test Set ($N=5,000$)**:
+  - Accuracy: **70.14%** (+0.32 pp vs. baseline 69.82%)
+  - Macro F1: **51.65%** (+0.77 pp vs. baseline 50.88%)
+  - Weighted F1: **70.10%** (+0.32 pp vs. baseline 69.78%)
+
+*Key Representational Finding*: Preserving punctuation and syntactic negation boundaries (`didn't`, `not`, `never`) gives character n-grams (`analyzer='char'`, ranges 3–5) crucial context that standard stopword and symbol stripping aggressively discard, lifting text-only performance without increasing model capacity.
+
+### Normalized 11-Class Task
+*The original 18-class task achieves approximately 70% accuracy. When historical administrative label variants are normalized into 11 broader product groups, the same classical NLP pipeline achieves approximately 82% accuracy.*
+
+- **Classification Formulation**: Conservative Taxonomy v1 (11 Categories, grounded in official CFPB documentation; `Consumer Loan` retained independently).
+- **Standard Preprocessing**:
+  - Validation Accuracy: **82.10%** | Validation Macro F1: **63.33%**
+  - Holdout Test Accuracy: **81.50%** | Holdout Test Macro F1: **63.43%**
+- **Minimal Preprocessing**:
+  - Validation Accuracy: **82.88%** | Validation Macro F1: **64.50%**
+  - Holdout Test Accuracy: **82.10%** | Holdout Test Macro F1: **63.75%**
+
+> **Important Scientific Distinction**: The 11-class normalized taxonomy represents a **different classification task formulation**, not an algorithmic improvement of the 18-class model. Over 40% of all baseline errors occur between identical financial concepts separated purely by CFPB administrative form redesign dates (e.g. *Credit reporting* vs. *Credit reporting, credit repair services...*). Removing administrative synonyms aligns the task with genuine product boundaries.
+
+---
+
 ## Evaluation & Benchmark Results
 
 ### Clarification on Experimental Comparisons

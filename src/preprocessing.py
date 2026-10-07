@@ -35,34 +35,51 @@ STANDARD_STOPWORDS: Set[str] = {
 }
 
 
-def clean_text(text: str | None) -> str:
+def clean_text(text: str | None, mode: str = "standard") -> str:
     """Clean raw complaint narrative text using classical normalization steps.
 
     Design Decisions:
-    - Lowercase normalization: Harmonizes casing variations.
-    - URL & Email removal: Discards web and contact noise that does not inform
-      financial categorization.
-    - Punctuation & symbol stripping: Replaces non-alphanumeric symbols with spaces.
-    - Numeric token retention: Numeric values (e.g., years like '2023', dollar sums
-      like '50', percentages, and account digits) are intentionally preserved
-      because they offer discriminative financial context (e.g., loan terms or dispute dates).
-    - CFPB Redaction removal: Strips privacy placeholders (e.g., 'xxxx', 'xx/xx/xxxx')
-      using word-boundary matching (\\bx{2,}\\b) to eliminate masking artifacts without
-      corrupting genuine words that contain consecutive 'x' characters (e.g., 'Exxon').
-    - Whitespace normalization: Collapses multi-spaces and strips boundaries.
+    - Standard Mode:
+      - Lowercase normalization: Harmonizes casing variations.
+      - URL & Email removal: Discards web and contact noise that does not inform
+        financial categorization.
+      - Punctuation & symbol stripping: Replaces non-alphanumeric symbols with spaces.
+      - Numeric token retention: Numeric values (e.g., years like '2023', dollar sums
+        like '50', percentages, and account digits) are intentionally preserved
+        because they offer discriminative financial context.
+      - CFPB Redaction removal: Strips privacy placeholders (e.g., 'xxxx', 'xx/xx/xxxx')
+        using word-boundary matching (\\bx{2,}\\b).
+      - Whitespace normalization: Collapses multi-spaces and strips boundaries.
+    - Minimal Mode:
+      - Lowercase normalization and whitespace collapsing only.
+      - Retains punctuation, digits, stopwords, negation words ('not', 'never', 'n't'),
+        redaction markers, and syntactic boundaries to preserve character n-gram context.
 
     Parameters
     ----------
     text : str | None
         Raw customer complaint narrative string.
+    mode : str, default='standard'
+        Cleaning mode: 'standard' or 'minimal'.
 
     Returns
     -------
     str
-        Sanitized, lowercased string of alphanumeric words and numbers separated by single spaces.
+        Sanitized, lowercased string.
+
+    Raises
+    ------
+    ValueError
+        If mode is not 'standard' or 'minimal'.
     """
+    if mode not in ("standard", "minimal"):
+        raise ValueError(f"Unsupported cleaning mode '{mode}'. Choose 'standard' or 'minimal'.")
+
     if not isinstance(text, str) or not text.strip():
         return ""
+
+    if mode == "minimal":
+        return re.sub(r"\s+", " ", text.lower()).strip()
 
     # 1. Lowercase normalization
     cleaned = text.lower()
@@ -132,25 +149,48 @@ def remove_stopwords(
 
 def preprocess_text(
     text: str | None,
-    custom_stopwords: Set[str] | None = None
+    custom_stopwords: Set[str] | None = None,
+    mode: str = "standard"
 ) -> str:
     """Execute complete end-to-end preprocessing pipeline on a single narrative string.
 
     Pipeline:
-    Raw complaint → clean_text → tokenize → remove_stopwords → standardized string.
+    - Standard: Raw complaint → clean_text → tokenize → remove_stopwords → standardized string.
+    - Minimal: Raw complaint → clean_text(mode='minimal') → lowercase + whitespace-normalized string
+      (preserves punctuation, digits, stopwords, negations, character boundary syntax).
 
     Parameters
     ----------
     text : str | None
         The raw input narrative text.
     custom_stopwords : Set[str] | None, optional
-        Custom set of stop words.
+        Custom set of stop words (used in 'standard' mode).
+    mode : str, default='standard'
+        Preprocessing mode: 'standard' or 'minimal'.
 
     Returns
     -------
     str
         Preprocessed, normalized text string ready for vectorization.
+
+    Raises
+    ------
+    ValueError
+        If mode is not 'standard' or 'minimal'.
     """
+    if isinstance(custom_stopwords, str) and mode == "standard":
+        mode = custom_stopwords
+        custom_stopwords = None
+
+    if mode not in ("standard", "minimal"):
+        raise ValueError(f"Unsupported preprocessing mode '{mode}'. Choose 'standard' or 'minimal'.")
+
+    if not isinstance(text, str) or not text.strip():
+        return ""
+
+    if mode == "minimal":
+        return clean_text(text, mode="minimal")
+
     tokens = tokenize(text)
     filtered = remove_stopwords(tokens, custom_stopwords=custom_stopwords)
     return " ".join(filtered)
@@ -158,7 +198,8 @@ def preprocess_text(
 
 def preprocess_series(
     series: pd.Series,
-    custom_stopwords: Set[str] | None = None
+    custom_stopwords: Set[str] | None = None,
+    mode: str = "standard"
 ) -> pd.Series:
     """Apply the text preprocessing pipeline across a pandas Series of complaint texts.
 
@@ -169,7 +210,9 @@ def preprocess_series(
     series : pd.Series
         Pandas Series containing raw complaint text records.
     custom_stopwords : Set[str] | None, optional
-        Custom stop words to filter out during preprocessing.
+        Custom stop words to filter out during preprocessing (standard mode).
+    mode : str, default='standard'
+        Preprocessing mode: 'standard' or 'minimal'.
 
     Returns
     -------
@@ -180,10 +223,19 @@ def preprocess_series(
     ------
     TypeError
         If input is not a pandas Series.
+    ValueError
+        If mode is not 'standard' or 'minimal'.
     """
     if not isinstance(series, pd.Series):
         raise TypeError(f"Expected pandas Series, got {type(series).__name__}")
 
+    if isinstance(custom_stopwords, str) and mode == "standard":
+        mode = custom_stopwords
+        custom_stopwords = None
+
+    if mode not in ("standard", "minimal"):
+        raise ValueError(f"Unsupported preprocessing mode '{mode}'. Choose 'standard' or 'minimal'.")
+
     return series.fillna("").astype(str).apply(
-        lambda val: preprocess_text(val, custom_stopwords=custom_stopwords)
+        lambda val: preprocess_text(val, custom_stopwords=custom_stopwords, mode=mode)
     )

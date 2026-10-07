@@ -1,0 +1,244 @@
+{
+  "A random stratified 16k/4k (official protocol, pool only)": {
+    "acc": 0.6995,
+    "macro_f1": 0.5183603041965342,
+    "macro_rec": 0.5177878619583389,
+    "weighted_f1": 0.6982946219288559,
+    "n_train": 16000,
+    "n_val": 4000,
+    "val_group_acc_v1": 0.821,
+    "val_rows_with_label_unseen_in_train": 0,
+    "acc_on_seen_labels": 0.6995,
+    "train_date_range": [
+      "2015-03-19",
+      "2018-04-24"
+    ],
+    "val_date_range": [
+      "2015-03-19",
+      "2018-04-24"
+    ],
+    "val_label_counts": {
+      "Debt collection": 933,
+      "Credit reporting, credit repair services, or other personal consumer reports": 680,
+      "Mortgage": 632,
+      "Credit reporting": 461,
+      "Credit card": 269,
+      "Student loan": 236,
+      "Bank account or service": 215,
+      "Credit card or prepaid card": 156,
+      "Consumer Loan": 134,
+      "Checking or savings account": 98,
+      "Money transfer, virtual currency, or money service": 45,
+      "Vehicle loan or lease": 35,
+      "Payday loan, title loan, or personal loan": 31,
+      "Payday loan": 27,
+      "Money transfers": 23,
+      "Prepaid card": 21,
+      "Other financial service": 4
+    },
+    "train_label_counts": {
+      "Debt collection": 3731,
+      "Credit reporting, credit repair services, or other personal consumer reports": 2720,
+      "Mortgage": 2528,
+      "Credit reporting": 1845,
+      "Credit card": 1075,
+      "Student loan": 943,
+      "Bank account or service": 862,
+      "Credit card or prepaid card": 623,
+      "Consumer Loan": 534,
+      "Checking or savings account": 392,
+      "Money transfer, virtual currency, or money service": 181,
+      "Vehicle loan or lease": 142,
+      "Payday loan, title loan, or personal loan": 123,
+      "Payday loan": 108,
+      "Money transfers": 92,
+      "Prepaid card": 85,
+      "Other financial service": 14,
+      "Virtual currency": 2
+    }
+  },
+  "B chronological oldest16k->newest4k": {
+    "acc": 0.519,
+    "macro_f1": 0.2762983648901163,
+    "macro_rec": 0.24804733733396478,
+    "weighted_f1": 0.5995487526018449,
+    "n_train": 16000,
+    "n_val": 4000,
+    "val_group_acc_v1": 0.76425,
+    "val_rows_with_label_unseen_in_train": 0,
+    "acc_on_seen_labels": 0.519,
+    "train_date_range": [
+      "2015-03-19",
+      "2017-10-09"
+    ],
+    "val_date_range": [
+      "2017-10-09",
+      "2018-04-24"
+    ],
+    "val_label_counts": {
+      "Credit reporting, credit repair services, or other personal consumer reports": 1636,
+      "Debt collection": 867,
+      "Credit card or prepaid card": 392,
+      "Mortgage": 378,
+      "Checking or savings account": 237,
+      "Student loan": 168,
+      "Money transfer, virtual currency, or money service": 141,
+      "Vehicle loan or lease": 101,
+      "Payday loan, title loan, or personal loan": 80
+    },
+    "train_label_counts": {
+      "Debt collection": 3797,
+      "Mortgage": 2782,
+      "Credit reporting": 2306,
+      "Credit reporting, credit repair services, or other personal consumer reports": 1764,
+      "Credit card": 1344,
+      "Bank account or service": 1077,
+      "Student loan": 1011,
+      "Consumer Loan": 668,
+      "Credit card or prepaid card": 387,
+      "Checking or savings account": 253,
+      "Payday loan": 135,
+      "Money transfers": 115,
+      "Prepaid card": 106,
+      "Money transfer, virtual currency, or money service": 85,
+      "Vehicle loan or lease": 76,
+      "Payday loan, title loan, or personal loan": 74,
+      "Other financial service": 18,
+      "Virtual currency": 2
+    }
+  },
+  "C reverse chronological newest16k->oldest4k": {
+    "acc": 0.7,
+    "macro_f1": 0.3747779541991667,
+    "macro_rec": 0.3325663001434643,
+    "weighted_f1": 0.7566105742483217,
+    "n_train": 16000,
+    "n_val": 4000,
+    "val_group_acc_v1": 0.82175,
+    "val_rows_with_label_unseen_in_train": 0,
+    "acc_on_seen_labels": 0.7,
+    "train_date_range": [
+      "2016-01-03",
+      "2018-04-24"
+    ],
+    "val_date_range": [
+      "2015-03-19",
+      "2016-01-03"
+    ],
+    "val_label_counts": {
+      "Debt collection": 1068,
+      "Mortgage": 905,
+      "Credit reporting": 732,
+      "Credit card": 471,
+      "Bank account or service": 330,
+      "Consumer Loan": 216,
+      "Student loan": 131,
+      "Prepaid card": 56,
+      "Money transfers": 45,
+      "Payday loan": 41,
+      "Other financial service": 5
+    },
+    "train_label_counts": {
+      "Debt collection": 3596,
+      "Credit reporting, credit repair services, or other personal consumer reports": 3400,
+      "Mortgage": 2255,
+      "Credit reporting": 1574,
+      "Student loan": 1048,
+      "Credit card": 873,
+      "Credit card or prepaid card": 779,
+      "Bank account or service": 747,
+      "Checking or savings account": 490,
+      "Consumer Loan": 452,
+      "Money transfer, virtual currency, or money service": 226,
+      "Vehicle loan or lease": 177,
+      "Payday loan, title loan, or personal loan": 154,
+      "Payday loan": 94,
+      "Money transfers": 70,
+      "Prepaid card": 50,
+      "Other financial service": 13,
+      "Virtual currency": 2
+    }
+  },
+  "D random split, legacy-label rows removed (DIAGNOSTIC ONLY, changes label set)": {
+    "acc": 0.8619114546732256,
+    "macro_f1": 0.7772571704785121,
+    "macro_rec": 0.7804840657458563,
+    "weighted_f1": 0.8616851959630054,
+    "n_train": 11383,
+    "n_val": 2846,
+    "val_group_acc_v1": 0.8619114546732256,
+    "val_rows_with_label_unseen_in_train": 0,
+    "acc_on_seen_labels": 0.8619114546732256,
+    "train_date_range": [
+      "2015-03-19",
+      "2018-04-24"
+    ],
+    "val_date_range": [
+      "2015-03-19",
+      "2018-04-24"
+    ],
+    "val_label_counts": {
+      "Debt collection": 933,
+      "Credit reporting, credit repair services, or other personal consumer reports": 680,
+      "Mortgage": 632,
+      "Student loan": 236,
+      "Credit card or prepaid card": 156,
+      "Checking or savings account": 98,
+      "Money transfer, virtual currency, or money service": 45,
+      "Vehicle loan or lease": 35,
+      "Payday loan, title loan, or personal loan": 31
+    },
+    "train_label_counts": {
+      "Debt collection": 3731,
+      "Credit reporting, credit repair services, or other personal consumer reports": 2720,
+      "Mortgage": 2528,
+      "Student loan": 943,
+      "Credit card or prepaid card": 623,
+      "Checking or savings account": 392,
+      "Money transfer, virtual currency, or money service": 181,
+      "Vehicle loan or lease": 142,
+      "Payday loan, title loan, or personal loan": 123
+    }
+  },
+  "E chronological, legacy-label rows removed (DIAGNOSTIC ONLY)": {
+    "acc": 0.7993675333801827,
+    "macro_f1": 0.7292302090012922,
+    "macro_rec": 0.7427441730499722,
+    "weighted_f1": 0.7989680672533351,
+    "n_train": 11383,
+    "n_val": 2846,
+    "val_group_acc_v1": 0.7993675333801827,
+    "val_rows_with_label_unseen_in_train": 0,
+    "acc_on_seen_labels": 0.7993675333801827,
+    "train_date_range": [
+      "2015-03-19",
+      "2017-11-30"
+    ],
+    "val_date_range": [
+      "2017-11-30",
+      "2018-04-24"
+    ],
+    "val_label_counts": {
+      "Credit reporting, credit repair services, or other personal consumer reports": 1187,
+      "Debt collection": 630,
+      "Credit card or prepaid card": 282,
+      "Mortgage": 247,
+      "Checking or savings account": 159,
+      "Money transfer, virtual currency, or money service": 124,
+      "Student loan": 111,
+      "Vehicle loan or lease": 57,
+      "Payday loan, title loan, or personal loan": 49
+    },
+    "train_label_counts": {
+      "Debt collection": 4034,
+      "Mortgage": 2913,
+      "Credit reporting, credit repair services, or other personal consumer reports": 2213,
+      "Student loan": 1068,
+      "Credit card or prepaid card": 497,
+      "Checking or savings account": 331,
+      "Vehicle loan or lease": 120,
+      "Payday loan, title loan, or personal loan": 105,
+      "Money transfer, virtual currency, or money service": 102
+    }
+  }
+}
