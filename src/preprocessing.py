@@ -72,13 +72,16 @@ def clean_text(text: str | None, mode: str = "standard") -> str:
     ValueError
         If mode is not 'standard' or 'minimal'.
     """
-    if mode not in ("standard", "minimal"):
+    if not isinstance(mode, str):
+        raise ValueError(f"Cleaning mode must be a string, got {type(mode).__name__}.")
+    mode_norm = mode.lower().strip()
+    if mode_norm not in ("standard", "minimal"):
         raise ValueError(f"Unsupported cleaning mode '{mode}'. Choose 'standard' or 'minimal'.")
 
     if not isinstance(text, str) or not text.strip():
         return ""
 
-    if mode == "minimal":
+    if mode_norm == "minimal":
         return re.sub(r"\s+", " ", text.lower()).strip()
 
     # 1. Lowercase normalization
@@ -182,13 +185,16 @@ def preprocess_text(
         mode = custom_stopwords
         custom_stopwords = None
 
-    if mode not in ("standard", "minimal"):
+    if not isinstance(mode, str):
+        raise ValueError(f"Preprocessing mode must be a string, got {type(mode).__name__}.")
+    mode_norm = mode.lower().strip()
+    if mode_norm not in ("standard", "minimal"):
         raise ValueError(f"Unsupported preprocessing mode '{mode}'. Choose 'standard' or 'minimal'.")
 
     if not isinstance(text, str) or not text.strip():
         return ""
 
-    if mode == "minimal":
+    if mode_norm == "minimal":
         return clean_text(text, mode="minimal")
 
     tokens = tokenize(text)
@@ -233,9 +239,12 @@ def preprocess_series(
         mode = custom_stopwords
         custom_stopwords = None
 
-    if mode not in ("standard", "minimal"):
+    if not isinstance(mode, str):
+        raise ValueError(f"Preprocessing mode must be a string, got {type(mode).__name__}.")
+    mode_norm = mode.lower().strip()
+    if mode_norm not in ("standard", "minimal"):
         raise ValueError(f"Unsupported preprocessing mode '{mode}'. Choose 'standard' or 'minimal'.")
 
     return series.fillna("").astype(str).apply(
-        lambda val: preprocess_text(val, custom_stopwords=custom_stopwords, mode=mode)
+        lambda val: preprocess_text(val, custom_stopwords=custom_stopwords, mode=mode_norm)
     )

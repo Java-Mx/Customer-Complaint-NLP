@@ -99,3 +99,75 @@ def test_hierarchical_comparison_csv_schema():
     assert "val_accuracy" in df.columns
     assert "val_macro_f1" in df.columns
     assert len(df) >= 4
+
+
+def test_post_audit_error_analysis_json():
+    """Verify results/post_audit_error_analysis.json structure and key metrics."""
+    json_path = ROOT_DIR / "results" / "post_audit_error_analysis.json"
+    if not json_path.exists():
+        pytest.skip("post_audit_error_analysis.json not yet generated.")
+
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    assert data["validation_size"] == 4000
+    assert data["baseline_total_errors"] == 1202
+    assert data["improved_total_errors"] == 1147
+    assert data["net_errors_eliminated"] == 55
+    assert data["baseline_sibling_errors"] == 486
+    assert data["improved_sibling_errors"] == 462
+    assert len(data["top_10_confusion_pairs"]) == 10
+    assert "confidence_statistics" in data
+    assert "why_errors_remain" in data
+
+
+def test_post_audit_test_metrics_json():
+    """Verify results/post_audit_test_metrics.json structure and exact metrics."""
+    json_path = ROOT_DIR / "results" / "post_audit_test_metrics.json"
+    if not json_path.exists():
+        pytest.skip("post_audit_test_metrics.json not yet generated.")
+
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    assert data["baseline_18_class_test"]["accuracy"] == 0.6982
+    assert data["baseline_18_class_test"]["macro_f1"] == 0.5088
+    assert round(data["improved_18_class_test"]["accuracy"], 4) == 0.7116
+    assert round(data["improved_18_class_test"]["macro_f1"], 4) == 0.5243
+    assert round(data["normalized_11_class_test"]["accuracy"], 4) == 0.8190
+    assert round(data["normalized_11_class_test"]["macro_f1"], 4) == 0.6329
+    assert data["deltas_18_class"]["accuracy_delta_pp"] == 1.34
+    assert data["deltas_18_class"]["macro_f1_delta_pp"] == 1.55
+
+
+def test_post_audit_confusion_matrix_and_per_category_csv():
+    """Verify post_audit_confusion_matrix.csv and post_audit_per_category.csv if generated."""
+    cm_path = ROOT_DIR / "results" / "post_audit_confusion_matrix.csv"
+    per_cat_path = ROOT_DIR / "results" / "post_audit_per_category.csv"
+    if not cm_path.exists() or not per_cat_path.exists():
+        pytest.skip("post-audit error CSVs pending generation.")
+
+    cm_df = pd.read_csv(cm_path, index_col=0)
+    assert cm_df.shape in ((17, 17), (18, 18))
+
+    cat_df = pd.read_csv(per_cat_path)
+    assert len(cat_df) in (17, 18)
+    assert "improved_f1" in cat_df.columns
+    assert "baseline_f1" in cat_df.columns
+    assert "delta_f1" in cat_df.columns
+
+
+def test_apptest_model_evaluation_post_audit_navigation():
+    """Verify that Streamlit app initializes, navigates to MODEL EVALUATION, and renders tab0 cleanly."""
+    from streamlit.testing.v1 import AppTest
+
+    at = AppTest.from_file("app/app.py")
+    at.run(timeout=30)
+    assert not at.exception
+
+    # Find the MODEL EVALUATION navigation button
+    eval_btns = [b for b in at.button if b.key and "nav_btn_model_evaluation" in b.key]
+    assert len(eval_btns) == 1
+    eval_btns[0].click().run(timeout=30)
+    assert not at.exception
+    assert at.session_state["active_module"] == "MODEL EVALUATION"

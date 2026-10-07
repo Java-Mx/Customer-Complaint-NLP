@@ -130,4 +130,10 @@ def test_post_audit_model_comparison_chart():
     assert fig.data[1].name == "Improved 18-Class (Minimal Preprocessing)"
     assert fig.data[2].name == "Normalized 11-Class (Conservative Taxonomy)"
     assert "Post-Audit Model Comparison" in fig.layout.title.text
+    assert "Holdout Test Set" in fig.layout.title.text
+
+    # Also test validation metrics display
+    fig_val = create_post_audit_model_comparison_chart(df, use_test_metrics=False)
+    assert isinstance(fig_val, go.Figure)
+    assert "Validation Set" in fig_val.layout.title.text
 

@@ -667,9 +667,18 @@ elif selected_section == "MODEL EVALUATION":
             c1, c2, c3 = st.columns(3)
             with c1:
                 st.markdown("##### ORIGINAL 18-CLASS BASELINE")
-                st.metric("Test Accuracy", "69.82%")
-                st.caption("Macro F1: 0.5088 | Weighted F1: 0.6978")
-                st.caption("Validation: Acc 69.95% | Macro F1: 0.5184")
+                b_row = imp_df[imp_df["experiment"].str.contains("Baseline", case=False, na=False)] if imp_df is not None and not imp_df.empty else None
+                if b_row is not None and not b_row.empty:
+                    b_acc = float(b_row.iloc[0].get("test_accuracy", 0.6982))
+                    b_mf1 = float(b_row.iloc[0].get("test_macro_f1", 0.5088))
+                    b_wf1 = float(b_row.iloc[0].get("test_weighted_f1", 0.6978))
+                    st.metric("Test Accuracy", f"{b_acc:.2%}")
+                    st.caption(f"Macro F1: {b_mf1:.4f} | Weighted F1: {b_wf1:.4f}")
+                    st.caption(f"Validation: Acc {float(b_row.iloc[0]['accuracy']):.2%} | Macro F1: {float(b_row.iloc[0]['macro_f1']):.4f}")
+                else:
+                    st.metric("Test Accuracy", "69.82%")
+                    st.caption("Macro F1: 0.5088 | Weighted F1: 0.6978")
+                    st.caption("Validation: Acc 69.95% | Macro F1: 0.5184")
             with c2:
                 st.markdown("##### IMPROVED 18-CLASS MODEL")
                 if imp_df is not None and not imp_df.empty:
@@ -703,15 +712,17 @@ elif selected_section == "MODEL EVALUATION":
                         n_acc = float(norm_row.iloc[0].get("test_accuracy", norm_row.iloc[0]["accuracy"]))
                         n_mf1 = float(norm_row.iloc[0].get("test_macro_f1", norm_row.iloc[0]["macro_f1"]))
                         n_wf1 = float(norm_row.iloc[0].get("test_weighted_f1", norm_row.iloc[0]["weighted_f1"]))
-                        st.metric("Test Accuracy", f"{n_acc:.2%}", delta=f"{n_acc - 0.6982:+.2%}")
+                        st.metric("Test Accuracy", f"{n_acc:.2%}", delta=None)
                         st.caption(f"Macro F1: {n_mf1:.4f} | Weighted F1: {n_wf1:.4f}")
-                        st.caption("Task Re-formulation: Administrative synonymy removed.")
+                        st.caption("Re-formulated Task: Administrative synonymies normalized into 11 broad groups.")
                     else:
-                        st.metric("Test Accuracy", "82.10%", delta="+12.28%")
-                        st.caption("Macro F1: 0.6333 | Weighted F1: 0.8210")
+                        st.metric("Test Accuracy", "81.90%", delta=None)
+                        st.caption("Macro F1: 0.6329 | Weighted F1: 0.8196")
+                        st.caption("Re-formulated Task: Administrative synonymies normalized into 11 broad groups.")
                 else:
-                    st.metric("Test Accuracy", "82.10%", delta="+12.28%")
-                    st.caption("Macro F1: 0.6333 | Weighted F1: 0.8210")
+                    st.metric("Test Accuracy", "81.90%", delta=None)
+                    st.caption("Macro F1: 0.6329 | Weighted F1: 0.8196")
+                    st.caption("Re-formulated Task: Administrative synonymies normalized into 11 broad groups.")
 
             st.markdown("---")
 
@@ -725,6 +736,14 @@ elif selected_section == "MODEL EVALUATION":
                 st.markdown("##### Formal Model Improvement Benchmark Table")
                 st.dataframe(imp_df, use_container_width=True)
 
+            if tax_comp_df is not None:
+                with st.expander("Taxonomy Formulation Model Comparison (18-Class vs. 11-Class)"):
+                    st.markdown(
+                        "Controlled comparison demonstrating performance across task definitions "
+                        "(original 18 CFPB classes vs conservative 11 normalized product domains)."
+                    )
+                    st.dataframe(tax_comp_df, use_container_width=True)
+
             if hier_df is not None:
                 with st.expander("Classical Hierarchical Classifier Experiment Results"):
                     st.markdown(
@@ -732,6 +751,21 @@ elif selected_section == "MODEL EVALUATION":
                         "Stage 2 uses local text-only classifiers to resolve historical variants."
                     )
                     st.dataframe(hier_df, use_container_width=True)
+
+            if post_audit_err is not None:
+                with st.expander("Post-Audit Error Analysis Decomposition (Validation Split N=4,000)"):
+                    ec1, ec2, ec3 = st.columns(3)
+                    with ec1:
+                        st.metric("Baseline Total Errors", f"{post_audit_err.get('baseline_total_errors', 1202):,}")
+                    with ec2:
+                        st.metric("Improved Total Errors", f"{post_audit_err.get('improved_total_errors', 1147):,}", delta=f"-{post_audit_err.get('net_errors_eliminated', 55)}")
+                    with ec3:
+                        st.metric("Historical Sibling Errors", f"{post_audit_err.get('improved_sibling_errors', 462):,}", help="Errors between administrative renames sharing identical vocabulary.")
+
+                    st.markdown("###### Top Confusion Pairs Under Improved Model")
+                    pairs = post_audit_err.get("top_10_confusion_pairs", [])
+                    if pairs:
+                        st.dataframe(pd.DataFrame(pairs), use_container_width=True)
 
         with tab1:
             st.markdown("#### Baseline vs. Improved Model Benchmark Comparison")

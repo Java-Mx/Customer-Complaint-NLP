@@ -241,3 +241,37 @@ class TestMinimalPreprocessing:
             preprocess_text("test", mode="unsupported")
         with pytest.raises(ValueError, match="Unsupported.*mode"):
             preprocess_series(pd.Series(["test"]), mode="unsupported")
+
+    def test_mode_casing_insensitivity(self):
+        sample = "Dispute regarding $100 charge!"
+        res1 = clean_text(sample, mode="Minimal")
+        res2 = clean_text(sample, mode="MINIMAL")
+        res3 = clean_text(sample, mode="minimal")
+        assert res1 == res2 == res3 == "dispute regarding $100 charge!"
+
+        res_std1 = preprocess_text(sample, mode="Standard")
+        res_std2 = preprocess_text(sample, mode="standard")
+        assert res_std1 == res_std2
+
+    def test_non_string_mode_raises(self):
+        with pytest.raises(ValueError, match="must be a string"):
+            clean_text("test", mode=123)
+        with pytest.raises(ValueError, match="must be a string"):
+            preprocess_text("test", mode=123)
+        with pytest.raises(ValueError, match="must be a string"):
+            preprocess_series(pd.Series(["test"]), mode=123)
+
+    def test_minimal_only_punctuation_and_symbols(self):
+        text = "??? !!! ... ### $$$"
+        result = preprocess_text(text, mode="minimal")
+        assert result == "??? !!! ... ### $$$"
+
+    def test_minimal_positional_mode_argument(self):
+        text = "Did not receive my card."
+        result = preprocess_text(text, "minimal")
+        assert result == "did not receive my card."
+
+    def test_minimal_unicode_and_whitespace(self):
+        text = "Overdraft \xa0 fee of \t €35 \n applied."
+        result = preprocess_text(text, mode="minimal")
+        assert result == "overdraft fee of €35 applied."

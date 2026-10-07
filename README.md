@@ -288,9 +288,9 @@ Representational optimization via minimal preprocessing (retaining punctuation, 
   - Macro F1: **53.50%** (+1.66 pp vs. baseline 51.84%)
   - Weighted F1: **71.25%** (+1.42 pp vs. baseline 69.83%)
 - **Holdout Test Set ($N=5,000$)**:
-  - Accuracy: **70.14%** (+0.32 pp vs. baseline 69.82%)
-  - Macro F1: **51.65%** (+0.77 pp vs. baseline 50.88%)
-  - Weighted F1: **70.10%** (+0.32 pp vs. baseline 69.78%)
+  - Accuracy: **71.16%** (+1.34 pp vs. baseline 69.82%)
+  - Macro F1: **52.43%** (+1.55 pp vs. baseline 50.88%)
+  - Weighted F1: **71.07%** (+1.29 pp vs. baseline 69.78%)
 
 *Key Representational Finding*: Preserving punctuation and syntactic negation boundaries (`didn't`, `not`, `never`) gives character n-grams (`analyzer='char'`, ranges 3–5) crucial context that standard stopword and symbol stripping aggressively discard, lifting text-only performance without increasing model capacity.
 
@@ -299,11 +299,11 @@ Representational optimization via minimal preprocessing (retaining punctuation, 
 
 - **Classification Formulation**: Conservative Taxonomy v1 (11 Categories, grounded in official CFPB documentation; `Consumer Loan` retained independently).
 - **Standard Preprocessing**:
-  - Validation Accuracy: **82.10%** | Validation Macro F1: **63.33%**
+  - Validation Accuracy: **82.20%** | Validation Macro F1: **63.23%**
   - Holdout Test Accuracy: **81.50%** | Holdout Test Macro F1: **63.43%**
 - **Minimal Preprocessing**:
-  - Validation Accuracy: **82.88%** | Validation Macro F1: **64.50%**
-  - Holdout Test Accuracy: **82.10%** | Holdout Test Macro F1: **63.75%**
+  - Validation Accuracy: **82.85%** | Validation Macro F1: **64.53%**
+  - Holdout Test Accuracy: **81.90%** | Holdout Test Macro F1: **63.29%**
 
 > **Important Scientific Distinction**: The 11-class normalized taxonomy represents a **different classification task formulation**, not an algorithmic improvement of the 18-class model. Over 40% of all baseline errors occur between identical financial concepts separated purely by CFPB administrative form redesign dates (e.g. *Credit reporting* vs. *Credit reporting, credit repair services...*). Removing administrative synonyms aligns the task with genuine product boundaries.
 

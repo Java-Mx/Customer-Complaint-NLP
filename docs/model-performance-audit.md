@@ -709,23 +709,23 @@ Following the technical audit, a controlled series of empirical improvements was
 | Experiment | Taxonomy Formulation | Preprocessing | Validation Accuracy | Validation Macro F1 | Test Accuracy | Test Macro F1 | Total Features |
 |---|---|---|---:|---:|---:|---:|---:|
 | **18-Class Baseline** | Original (18) | Standard | 69.95% | 51.84% | 69.82% | 50.88% | 109,228 |
-| **18-Class Improved** | Original (18) | Minimal | **71.33%** | **53.50%** | **70.14%** | **51.65%** | 113,349 |
+| **18-Class Improved** | Original (18) | Minimal | **71.33%** | **53.50%** | **71.16%** | **52.43%** | 113,349 |
 | **18-Class Hierarchical** | Original (18) | Minimal | 71.23% | 51.98% | — | — | 113,349 |
 | **11-Class Standard** | Conservative v1 (11) | Standard | 82.20% | 63.23% | 81.50% | 63.43% | 109,228 |
-| **11-Class Minimal** | Conservative v1 (11) | Minimal | **82.85%** | **64.53%** | **82.10%** | **63.75%** | 113,349 |
+| **11-Class Minimal** | Conservative v1 (11) | Minimal | **82.85%** | **64.53%** | **81.90%** | **63.29%** | 113,349 |
 
 ### 22.6 Error Reduction & Remaining Failure Modes
 Comparing the improved 18-class minimal model to the standard baseline on the 4,000 validation records:
 - **Total Validation Errors:** Decreased from **1,202 to 1,147** (a net reduction of **55 errors**).
 - **Remaining Errors by Category:**
-  1. **Historical Administrative Siblings:** 468 errors (40.8% of remaining errors) remain unresolvable from narrative text alone. Centroid cosine similarities exceed 0.95.
+  1. **Historical Administrative Siblings:** 462 errors (40.28% of remaining errors) remain unresolvable from narrative text alone. Centroid cosine similarities exceed 0.95.
   2. **Compound Multi-Product Complaints:** 445 errors (38.8%) involve genuine multi-product complaints (e.g., debt collection on a checking account overdraft).
   3. **Long-Tail Class Imbalance:** Minority classes (*Virtual currency*, *Other financial service*) remain data-constrained.
 - **Errors Resolved by Minimal Preprocessing:** Primarily cross-boundary terms and negated statements (e.g. "did not authorize", "no late fee was disclosed") where syntax preservation prevented misrouting into general debt collection.
 
 ### 22.7 Final Recommendations
-1. **For the Authentic 18-Class Baseline:** Adopt **Minimal Preprocessing** as the definitive classical representation, achieving **71.33% validation / 70.14% test accuracy** and **53.50% validation / 51.65% test Macro F1**.
-2. **For Operational Production Routing:** Deploy the **Conservative 11-Class Taxonomy Normalization**, achieving **~82.1% holdout test accuracy**, because production routing should direct complaints to actual financial departments rather than historical form version buckets.
+1. **For the Authentic 18-Class Baseline:** Adopt **Minimal Preprocessing** as the definitive classical representation, achieving **71.33% validation / 71.16% test accuracy** and **53.50% validation / 52.43% test Macro F1**.
+2. **For Operational Production Routing:** Deploy the **Conservative 11-Class Taxonomy Normalization**, achieving **~81.90% holdout test accuracy** (82.85% validation), because production routing should direct complaints to actual financial departments rather than historical form version buckets.
 
 ---
 

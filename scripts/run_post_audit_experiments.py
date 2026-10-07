@@ -537,11 +537,11 @@ def run_experiments():
     # PHASE 7: Detailed Error Analysis After Improvement
     # =========================================================================
     logger.info("Conducting granular error analysis on improved 18-class model...")
-    all_classes_18 = sorted(y_val.unique())
+    all_classes_18 = sorted(clf_18_min.classes_)
 
     # Per-category metrics for Baseline vs Improved
-    report_std = classification_report(y_val, pred_18_std_val, output_dict=True, zero_division=0)
-    report_min = classification_report(y_val, pred_18_min_val, output_dict=True, zero_division=0)
+    report_std = classification_report(y_val, pred_18_std_val, labels=all_classes_18, output_dict=True, zero_division=0)
+    report_min = classification_report(y_val, pred_18_min_val, labels=all_classes_18, output_dict=True, zero_division=0)
 
     per_category_comparison = []
     for c in all_classes_18:
@@ -563,6 +563,12 @@ def run_experiments():
     # Confusion matrix
     cm_min = confusion_matrix(y_val, pred_18_min_val, labels=all_classes_18)
     cm_df = pd.DataFrame(cm_min, index=all_classes_18, columns=all_classes_18)
+    cm_df.to_csv(RESULTS_DIR / "post_audit_confusion_matrix.csv")
+    logger.info("Saved results/post_audit_confusion_matrix.csv")
+
+    df_per_cat = pd.DataFrame(per_category_comparison)
+    df_per_cat.to_csv(RESULTS_DIR / "post_audit_per_category.csv", index=False)
+    logger.info("Saved results/post_audit_per_category.csv")
 
     # Top confusion pairs
     pairs = []
@@ -578,6 +584,8 @@ def run_experiments():
                     "normalized_group": v1_mapping.get(true_c) if is_sibling else "Cross-Group",
                 })
     pairs_df = pd.DataFrame(pairs).sort_values("count", ascending=False)
+    pairs_df.to_csv(RESULTS_DIR / "post_audit_confusion_pairs.csv", index=False)
+    logger.info("Saved results/post_audit_confusion_pairs.csv")
 
     # Decompose errors
     y_val_arr = np.asarray(y_val)
