@@ -24,6 +24,17 @@ from src.preprocessing import preprocess_text
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "create_classifier",
+    "fit_classifier",
+    "predict_complaint_category",
+    "predict_category_proba",
+    "save_classifier",
+    "load_classifier",
+    "train_test_split_data",
+    "validate_model_artifacts",
+]
+
 
 def create_classifier(
     C: float = 1.0,

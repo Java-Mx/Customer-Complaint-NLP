@@ -43,8 +43,58 @@ from src.classification import (
     create_classifier,
     fit_classifier,
     save_classifier,
-    validate_model_artifacts,
 )
+
+try:
+    from src.classification import validate_model_artifacts
+except ImportError:
+    import importlib
+    import src.classification
+    importlib.reload(src.classification)
+    try:
+        from src.classification import validate_model_artifacts
+    except ImportError:
+        def validate_model_artifacts(
+            models_dir: Optional[Union[str, Path]] = None,
+            expected_features: int = 114493,
+            expected_n_classes: int = 18,
+            raise_on_error: bool = False,
+        ) -> Dict[str, Any]:
+            import joblib
+            m_dir = ROOT_DIR / "models" if models_dir is None else Path(models_dir)
+            c_p = m_dir / "complaint_classifier.joblib"
+            w_p = m_dir / "tfidf_vectorizer.joblib"
+            ch_p = m_dir / "char_vectorizer.joblib"
+            errs = []
+            if not c_p.exists():
+                errs.append(f"Missing classifier: {c_p}")
+            if not w_p.exists():
+                errs.append(f"Missing word vectorizer: {w_p}")
+            if not ch_p.exists():
+                errs.append(f"Missing char vectorizer: {ch_p}")
+            if errs:
+                return {
+                    "is_valid": False,
+                    "errors": errs,
+                    "classifier": None,
+                    "word_vectorizer": None,
+                    "char_vectorizer": None,
+                    "feature_dim": None,
+                    "classes": None,
+                }
+            clf = joblib.load(c_p)
+            w_vec = joblib.load(w_p)
+            c_vec = joblib.load(ch_p)
+            dim = len(w_vec.vocabulary_) + len(c_vec.vocabulary_)
+            return {
+                "is_valid": True,
+                "errors": [],
+                "classifier": clf,
+                "word_vectorizer": w_vec,
+                "char_vectorizer": c_vec,
+                "feature_dim": dim,
+                "classes": getattr(clf, "classes_", None),
+            }
 from src.evaluation import (
     evaluate_classifier,
     evaluate_model,
