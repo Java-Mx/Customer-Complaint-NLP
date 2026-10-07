@@ -495,6 +495,28 @@ The application integrates with the official [CFPB Consumer Complaint Database A
 
 ---
 
+## Deployment & Production Model Artifacts
+
+Production model artifacts are version-controlled and tracked directly in the repository under:
+
+```
+models/
+├── complaint_classifier.joblib   # Trained class-balanced Multinomial Logistic Regression model (~15.7 MB)
+├── tfidf_vectorizer.joblib       # Fitted Word TF-IDF vectorizer (14,493 features, ~0.3 MB)
+└── char_vectorizer.joblib        # Fitted Character TF-IDF vectorizer (100,000 features, ~3.3 MB)
+```
+
+The Streamlit web application (`app/app.py`) dynamically validates and loads these three required runtime assets at startup:
+1. `complaint_classifier.joblib`
+2. `tfidf_vectorizer.joblib`
+3. `char_vectorizer.joblib`
+
+Together, these represent the audited 114,493-feature representation (Word + Character TF-IDF) evaluated on the untouched holdout test split.
+
+> **Data Policy Note**: The raw CFPB dataset (`data/complaints.csv`) remains intentionally excluded from Git tracking via `.gitignore` to preserve lightweight repository standards. When the local CSV is unavailable, the application operates seamlessly in live demonstration and CFPB API querying modes.
+
+---
+
 ## Limitations
 
 - **Syntactic Context**: Classical bag-of-words and TF-IDF representations do not capture complex long-range syntactic nuances or word re-ordering beyond the defined n-gram window.

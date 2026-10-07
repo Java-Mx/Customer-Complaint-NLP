@@ -43,6 +43,7 @@ from src.classification import (
     create_classifier,
     fit_classifier,
     save_classifier,
+    validate_model_artifacts,
 )
 from src.evaluation import (
     evaluate_classifier,
@@ -173,24 +174,20 @@ def build_indexed_corpus(nrows: int = 300):
 
 @st.cache_resource
 def load_trained_model():
-    """Load the trained classification model and vectorizer(s)."""
-    model_path = ROOT_DIR / "models" / "complaint_classifier.joblib"
-    w_vec_path = ROOT_DIR / "models" / "tfidf_vectorizer.joblib"
-    c_vec_path = ROOT_DIR / "models" / "char_vectorizer.joblib"
+    """Load and validate the trained classification model and vectorizer(s)."""
+    models_dir = ROOT_DIR / "models"
+    validation = validate_model_artifacts(models_dir)
 
-    if model_path.exists() and w_vec_path.exists():
-        try:
-            clf = load_classifier(model_path)
-            w_vec = joblib.load(w_vec_path)
-            c_vec = joblib.load(c_vec_path) if c_vec_path.exists() else None
-            vec = (w_vec, c_vec) if c_vec is not None else w_vec
-            return clf, vec
-        except Exception as e:
-            logger.warning("Failed to deserialize model artifacts: %s", e)
+    if validation["is_valid"]:
+        clf = validation["classifier"]
+        w_vec = validation["word_vectorizer"]
+        c_vec = validation["char_vectorizer"]
+        vec = (w_vec, c_vec) if c_vec is not None else w_vec
+        return clf, vec
     else:
-        logger.info("Model artifacts not present at %s or %s", model_path, w_vec_path)
-
-    return None, None
+        for err in validation["errors"]:
+            logger.warning("Model artifact validation error: %s", err)
+        return None, None
 
 
 @st.cache_data
@@ -411,8 +408,11 @@ if selected_section == "LIVE DEMO":
             clf_model, vec_model = load_trained_model()
             if clf_model is None or vec_model is None:
                 st.warning(
-                    "The trained classification model is not available. Please ensure "
-                    "serialized model artifacts exist in the models/ directory."
+                    "Production classification artifacts are unavailable. Expected:\n"
+                    "- `models/complaint_classifier.joblib`\n"
+                    "- `models/tfidf_vectorizer.joblib`\n"
+                    "- `models/char_vectorizer.joblib`\n\n"
+                    "Please verify deployment model tracking."
                 )
                 st.session_state["live_analyzed_data"] = None
             else:
@@ -1388,7 +1388,13 @@ elif selected_section == "CLASSIFICATION":
     clf_model, vec_model = load_trained_model()
 
     if clf_model is None or vec_model is None:
-        st.error("Classifier model or vectorizer could not be loaded.")
+        st.error(
+            "Production classification artifacts are unavailable. Expected:\n"
+            "- `models/complaint_classifier.joblib`\n"
+            "- `models/tfidf_vectorizer.joblib`\n"
+            "- `models/char_vectorizer.joblib`\n\n"
+            "Please verify deployment model tracking."
+        )
     else:
         st.sidebar.markdown(f"**Model:** `{type(clf_model).__name__}`")
         st.sidebar.markdown(f"**Trained Classes:** {len(clf_model.classes_)}")

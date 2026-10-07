@@ -593,3 +593,150 @@ def load_classifier(
     if not path.exists():
         raise FileNotFoundError(f"Model artifact not found at {path}")
     return joblib.load(path)
+
+
+def validate_model_artifacts(
+    models_dir: Optional[Union[str, Path]] = None,
+    expected_features: int = 114493,
+    expected_n_classes: int = 18,
+    raise_on_error: bool = False,
+) -> Dict[str, Any]:
+    """Validate presence, integrity, and compatibility of production model artifacts.
+
+    Ensures that serialized model artifacts exist in the target models/ directory,
+    can be properly deserialized with joblib, conform to the expected combined
+    feature representation (Word TF-IDF + Character TF-IDF), and match the
+    trained classifier classes and feature dimension.
+
+    Parameters
+    ----------
+    models_dir : str | Path | None, optional
+        Path to the models directory. Defaults to ROOT_DIR / "models" if None.
+    expected_features : int, default=114493
+        Expected combined input feature dimension (14,493 word + 100,000 char).
+    expected_n_classes : int, default=18
+        Expected number of target category classes in the classifier.
+    raise_on_error : bool, default=False
+        If True, raises FileNotFoundError or ValueError on validation failure.
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - 'is_valid': bool, True if all artifacts exist and are compatible
+        - 'errors': list of str, error descriptions if invalid
+        - 'classifier': deserialized classifier or None
+        - 'word_vectorizer': deserialized word vectorizer or None
+        - 'char_vectorizer': deserialized char vectorizer or None
+        - 'feature_dim': int, total feature dimension or None
+        - 'classes': np.ndarray, classifier classes or None
+    """
+    if models_dir is None:
+        models_dir = Path(__file__).resolve().parents[1] / "models"
+    else:
+        models_dir = Path(models_dir)
+
+    clf_path = models_dir / "complaint_classifier.joblib"
+    w_vec_path = models_dir / "tfidf_vectorizer.joblib"
+    c_vec_path = models_dir / "char_vectorizer.joblib"
+
+    errors: List[str] = []
+    missing_files: List[str] = []
+
+    for name, p in [
+        ("complaint_classifier.joblib", clf_path),
+        ("tfidf_vectorizer.joblib", w_vec_path),
+        ("char_vectorizer.joblib", c_vec_path),
+    ]:
+        if not p.exists():
+            missing_files.append(name)
+            errors.append(f"Missing required model artifact: {name} at {p}")
+
+    if missing_files:
+        if raise_on_error:
+            raise FileNotFoundError(f"Missing model artifact(s): {', '.join(missing_files)}")
+        return {
+            "is_valid": False,
+            "errors": errors,
+            "classifier": None,
+            "word_vectorizer": None,
+            "char_vectorizer": None,
+            "feature_dim": None,
+            "classes": None,
+        }
+
+    clf, w_vec, c_vec = None, None, None
+    try:
+        clf = joblib.load(clf_path)
+    except Exception as e:
+        errors.append(f"Failed to deserialize complaint_classifier.joblib: {e}")
+
+    try:
+        w_vec = joblib.load(w_vec_path)
+    except Exception as e:
+        errors.append(f"Failed to deserialize tfidf_vectorizer.joblib: {e}")
+
+    try:
+        c_vec = joblib.load(c_vec_path)
+    except Exception as e:
+        errors.append(f"Failed to deserialize char_vectorizer.joblib: {e}")
+
+    if errors:
+        if raise_on_error:
+            raise ValueError("; ".join(errors))
+        return {
+            "is_valid": False,
+            "errors": errors,
+            "classifier": clf,
+            "word_vectorizer": w_vec,
+            "char_vectorizer": c_vec,
+            "feature_dim": None,
+            "classes": None,
+        }
+
+    # Verify vectorizer fitted state
+    if not hasattr(w_vec, "vocabulary_"):
+        errors.append("Word vectorizer (tfidf_vectorizer.joblib) is not fitted.")
+    if not hasattr(c_vec, "vocabulary_"):
+        errors.append("Character vectorizer (char_vectorizer.joblib) is not fitted.")
+
+    # Verify classifier fitted state and classes
+    if not hasattr(clf, "classes_"):
+        errors.append("Classifier (complaint_classifier.joblib) has no classes_ attribute.")
+    elif len(clf.classes_) != expected_n_classes:
+        errors.append(
+            f"Classifier has {len(clf.classes_)} classes, expected {expected_n_classes}."
+        )
+
+    # Verify feature dimension compatibility
+    w_dim = len(w_vec.vocabulary_) if hasattr(w_vec, "vocabulary_") else 0
+    c_dim = len(c_vec.vocabulary_) if hasattr(c_vec, "vocabulary_") else 0
+    total_dim = w_dim + c_dim
+
+    if total_dim != expected_features:
+        errors.append(
+            f"Combined vectorizer features ({total_dim}) does not match expected ({expected_features})."
+        )
+
+    clf_features = getattr(clf, "n_features_in_", None)
+    if clf_features is None and hasattr(clf, "coef_"):
+        clf_features = clf.coef_.shape[1]
+
+    if clf_features is not None and clf_features != total_dim:
+        errors.append(
+            f"Classifier expected {clf_features} features, but combined vectorizers have {total_dim}."
+        )
+
+    is_valid = len(errors) == 0
+    if not is_valid and raise_on_error:
+        raise ValueError("; ".join(errors))
+
+    return {
+        "is_valid": is_valid,
+        "errors": errors,
+        "classifier": clf if is_valid else None,
+        "word_vectorizer": w_vec if is_valid else None,
+        "char_vectorizer": c_vec if is_valid else None,
+        "feature_dim": total_dim if is_valid else None,
+        "classes": clf.classes_ if (clf is not None and hasattr(clf, "classes_")) else None,
+    }

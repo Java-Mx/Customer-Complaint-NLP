@@ -74,6 +74,9 @@ models/*.pt
 models/*.bin
 models/*.onnx
 !models/.gitkeep
+!models/complaint_classifier.joblib
+!models/tfidf_vectorizer.joblib
+!models/char_vectorizer.joblib
 
 # Evaluation results & generated plots/metrics
 results/*.png
