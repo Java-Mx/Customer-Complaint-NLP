@@ -236,3 +236,35 @@ This document serves as the permanent chronological engineering, modeling, and r
 - **Testing & Verification:**
   - Added unit tests in `tests/test_preprocessing.py`, `tests/test_ui_charts.py`, and `tests/test_post_audit_improvements.py`.
   - All test suites passing; verified with `compileall` and Streamlit HTTP 200 health check.
+
+---
+
+### Milestone 16: Unified Streamlit Design System & API Migration
+
+- **Objective:** Modernize and unify the Streamlit user interface across all 9 application modules with a coherent design language, eliminate deprecated Streamlit parameter warnings, and standardize metric formatting without altering any ML results or evaluation data.
+- **Architectural & Compatibility Changes:**
+  1. **Unified Design System & Centralized Design Tokens (`app/ui_components.py`):**
+     - Established design tokens (`DESIGN_TOKENS`) for background, surfaces, borders, text hierarchy, semantic statuses, typography, and corner radius.
+     - Centralized custom CSS with CSS variables (`--bg-main`, `--bg-surface`, `--border-subtle`, `--accent-primary`, etc.).
+     - Built reusable UI rendering primitives: `render_page_header()`, `render_section_header()`, `render_metric_card()`, `render_metric_grid()`, `render_chart_card()`, `render_info_card()`, and `render_status_card()`.
+     - Eliminated excessive vertical spacing through compact container padding (`padding-top: 1.5rem !important;`).
+  2. **Standardized Navigation & Sidebar:**
+     - Replaced oversized sidebar buttons with compact, rectangular items featuring restrained active selection highlights (translucent blue border rather than saturated solid fills).
+     - Unified System Status indicator using accessible inline SVG icons and consistent card geometry, eliminating unicode symbols (`✓`, `✔`) and emojis.
+  3. **Standardized Metric Cards & KPI Grid:**
+     - Enforced consistent metric formatting: accuracy, precision, recall, and F1 values are rendered as percentages (e.g. `50.88%` instead of `0.5088`).
+     - Fixed "Test Partition Size" text truncation by removing CSS ellipsis truncation and formatting cleanly as `5,000 complaints`.
+     - Grouped metrics into a clean 4-column responsive grid (Row 1: Accuracy, Macro F1, Weighted F1, Test Partition; Row 2: Macro Precision, Macro Recall, Weighted Precision, Total Features).
+     - Standardized delta formatting to explicit percentage-point indicators (`+7.99 pp`, `+26.10 pp`) to prevent confusion between raw decimal differences and relative percentages.
+  4. **Streamlit Width API Migration (`width="stretch"`):**
+     - Replaced all 29 deprecated occurrences of `use_container_width=True` across `app/app.py` and `app/ui_components.py` with `width="stretch"`.
+     - Eliminated all Streamlit deprecation warnings across buttons, dataframes, and Plotly charts.
+     - Added explicit labels with `label_visibility="collapsed"` for text areas to resolve accessibility warnings.
+  5. **Strict Preservation of NLP & Model Behavior:**
+     - No modifications to preprocessing algorithms, TF-IDF configurations, model serialization, classification logic, similarity metrics, or evaluation figures.
+- **Testing & Verification:**
+  - Full test suite passed: 253 passed tests across all unit and integration suites (`pytest`).
+  - Python compilation validated: `python -m compileall src app scripts tests` passed with zero errors.
+  - Headless Streamlit server startup verified: HTTP 200 on health check and main dashboard.
+  - Comprehensive programmatic navigation verified across all 9 pages via `streamlit.testing.v1.AppTest`.
+

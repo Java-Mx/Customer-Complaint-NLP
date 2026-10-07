@@ -55,6 +55,12 @@ from src.cfpb_api import fetch_cfpb_data, test_api_connection
 try:
     from app.ui_components import (
         apply_custom_styles,
+        render_page_header,
+        render_section_header,
+        render_metric_card,
+        render_metric_grid,
+        render_chart_card,
+        render_info_card,
         render_sidebar_navigation,
         render_live_demo_header,
         render_example_complaint_buttons,
@@ -72,6 +78,12 @@ try:
 except (ImportError, ModuleNotFoundError):
     from ui_components import (
         apply_custom_styles,
+        render_page_header,
+        render_section_header,
+        render_metric_card,
+        render_metric_grid,
+        render_chart_card,
+        render_info_card,
         render_sidebar_navigation,
         render_live_demo_header,
         render_example_complaint_buttons,
@@ -92,28 +104,28 @@ def get_status_icon_svg(status: str) -> str:
     """Return inline SVG for clean visual status indication without emojis."""
     if status == "check":
         return (
-            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" '
-            'fill="none" stroke="#2e7d32" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" '
+            '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" '
+            'fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" '
             'style="vertical-align: -2px; margin-right: 6px;"><polyline points="20 6 9 17 4 12"/></svg>'
         )
     elif status == "cross":
         return (
-            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" '
-            'fill="none" stroke="#c62828" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" '
+            '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" '
+            'fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" '
             'style="vertical-align: -2px; margin-right: 6px;"><line x1="18" y1="6" x2="6" y2="18"/>'
             '<line x1="6" y1="6" x2="18" y2="18"/></svg>'
         )
     elif status == "warning":
         return (
-            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" '
-            'fill="none" stroke="#f57c00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" '
+            '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" '
+            'fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" '
             'style="vertical-align: -2px; margin-right: 6px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>'
             '<line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
         )
     elif status == "info":
         return (
-            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" '
-            'fill="none" stroke="#0288d1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" '
+            '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" '
+            'fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" '
             'style="vertical-align: -2px; margin-right: 6px;"><circle cx="12" cy="12" r="10"/>'
             '<line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
         )
@@ -127,7 +139,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Inject custom CSS styles
+# Inject unified design tokens and styles
 apply_custom_styles()
 
 
@@ -350,7 +362,10 @@ selected_section = render_sidebar_navigation(
 # ----------------------------------------------------------------------
 
 if selected_section == "LIVE DEMO":
-    render_live_demo_header()
+    render_page_header(
+        title="Live Complaint Analysis",
+        subtitle="Paste a consumer complaint to evaluate supervised classification and sparse cosine similarity retrieval in real time.",
+    )
 
     if "text_area_live_complaint" not in st.session_state:
         st.session_state["text_area_live_complaint"] = ""
@@ -362,11 +377,11 @@ if selected_section == "LIVE DEMO":
         st.session_state["live_complaint_text"] = ""
         st.session_state["live_analyzed_data"] = None
 
-    st.markdown("##### ENTER A CUSTOMER COMPLAINT")
+    render_section_header("Complaint Narrative Input", "Enter an authentic financial grievance or choose from curated demonstration examples below.")
     complaint_input = st.text_area(
         "Consumer Complaint Narrative",
         key="text_area_live_complaint",
-        height=160,
+        height=140,
         help="Paste a consumer complaint narrative to test supervised classification and cosine retrieval.",
         placeholder="Type or paste customer complaint text here...",
         label_visibility="collapsed",
@@ -379,12 +394,12 @@ if selected_section == "LIVE DEMO":
     # Primary and secondary action buttons
     col_btn1, col_btn2, _ = st.columns([2, 1, 4])
     with col_btn1:
-        analyze_clicked = st.button("ANALYZE COMPLAINT", type="primary", use_container_width=True)
+        analyze_clicked = st.button("ANALYZE COMPLAINT", type="primary", width="stretch")
     with col_btn2:
         st.button(
             "CLEAR",
             type="secondary",
-            use_container_width=True,
+            width="stretch",
             on_click=_clear_live_complaint,
         )
 
@@ -481,12 +496,9 @@ if selected_section == "LIVE DEMO":
 # ----------------------------------------------------------------------
 
 elif selected_section == "DATA EXPLORER":
-    st.subheader("Official CFPB API Integration & Data Explorer")
-    st.markdown(
-        """
-        Query real consumer financial complaints in real time directly from the official 
-        [CFPB Consumer Complaint Database API v1](https://www.consumerfinance.gov/data-research/consumer-complaints/search/api/v1/).
-        """
+    render_page_header(
+        title="CFPB Data Explorer",
+        subtitle="Query live records from the official CFPB Search API or inspect the pre-processed local dataset.",
     )
 
     data_source_mode = st.radio(
@@ -496,7 +508,7 @@ elif selected_section == "DATA EXPLORER":
     )
 
     if data_source_mode == "Query Live CFPB Search API":
-        st.markdown("#### Live CFPB Search API Query")
+        render_section_header("Live CFPB Search API Query", "Query real consumer financial complaints in real time directly from the official CFPB Search API v1.")
 
         col1, col2, col3 = st.columns([2, 2, 1])
         with col1:
@@ -521,7 +533,7 @@ elif selected_section == "DATA EXPLORER":
 
         prod_arg = "" if product_filter == "All Products" else product_filter
 
-        if st.button("Fetch Live Complaints from CFPB API", type="primary"):
+        if st.button("Fetch Live Complaints from CFPB API", type="primary", width="stretch"):
             with st.spinner("Connecting to official CFPB API endpoint..."):
                 try:
                     df_live = fetch_cfpb_data(
@@ -545,9 +557,9 @@ elif selected_section == "DATA EXPLORER":
                 )
 
                 display_cols = [c for c in ["complaint_id", "category", "company", "date_received", "state", "issue"] if c in df_live.columns]
-                st.dataframe(df_live[display_cols], use_container_width=True)
+                st.dataframe(df_live[display_cols], width="stretch")
 
-                st.markdown("#### Inspect Live Record Details")
+                render_section_header("Inspect Live Record Details", "Examine categorical metadata and customer narrative for selected complaint.")
                 comp_ids = df_live["complaint_id"].tolist()
                 if comp_ids:
                     selected_id = st.selectbox("Select Complaint ID to View:", comp_ids)
@@ -557,16 +569,16 @@ elif selected_section == "DATA EXPLORER":
 
                         c1, c2, c3 = st.columns(3)
                         with c1:
-                            st.metric("Product Category", sel_row.get("category", "N/A"))
+                            render_metric_card("Product Category", str(sel_row.get("category", "N/A")))
                         with c2:
-                            st.metric("Company", sel_row.get("company", "N/A"))
+                            render_metric_card("Company", str(sel_row.get("company", "N/A")))
                         with c3:
-                            st.metric("Date Received", str(sel_row.get("date_received", "N/A"))[:10])
+                            render_metric_card("Date Received", str(sel_row.get("date_received", "N/A"))[:10])
 
                         narrative_text = str(sel_row.get("text", "")).strip()
                         if narrative_text and narrative_text != "nan":
                             st.markdown("**Consumer Complaint Narrative:**")
-                            st.text_area("", value=narrative_text, height=140, disabled=True)
+                            st.text_area("Consumer Complaint Narrative", value=narrative_text, height=140, disabled=True, label_visibility="collapsed")
                         else:
                             st.info(
                                 "Note: Consumer narrative is not public for this recent record. Under CFPB publication policies, "
@@ -575,22 +587,22 @@ elif selected_section == "DATA EXPLORER":
                             )
 
     else:
-        st.markdown("#### Local CFPB Dataset Overview")
+        render_section_header("Local CFPB Dataset Overview", "Sampled records and product class distribution from data/complaints.csv.")
         sample_df = load_local_complaints(nrows=500)
         if sample_df.empty:
             st.error("No local dataset found at data/complaints.csv.")
         else:
             c1, c2, c3 = st.columns(3)
             with c1:
-                st.metric("Sampled Local Records", len(sample_df))
+                render_metric_card("Sampled Local Records", f"{len(sample_df):,}")
             with c2:
-                st.metric("Unique Product Categories", sample_df["category"].nunique())
+                render_metric_card("Unique Product Categories", str(sample_df["category"].nunique()))
             with c3:
-                st.metric("Missing Complaint Texts", sample_df["text"].isna().sum())
+                render_metric_card("Missing Complaint Texts", f"{sample_df['text'].isna().sum():,}")
 
             st.dataframe(
                 sample_df[["complaint_id", "category", "text"]].head(50),
-                use_container_width=True
+                width="stretch"
             )
 
 
@@ -599,14 +611,14 @@ elif selected_section == "DATA EXPLORER":
 # ----------------------------------------------------------------------
 
 elif selected_section == "MODEL EVALUATION":
-    st.subheader("Model Evaluation & Systematic Improvements")
-    st.markdown(
-        """
-        Rigorous comparative evaluation between the **Initial Baseline Model** ($N=600$ test split) and the 
-        **Improved Final Model** ($N=5,000$ test split, Combined Word+Character TF-IDF, Class Weight Balancing).
-        - **Data Leakage Safeguard**: 80/20 train/test split executed strictly prior to vectorization.
-        - **Model Selection Standard**: Selected using Validation Macro F1 across 30+ experimental configurations.
-        """
+    render_page_header(
+        title="Model Evaluation & Diagnostics",
+        subtitle="Rigorous comparative evaluation between baseline and final models on the untouched 5,000-record holdout test split.",
+    )
+
+    render_info_card(
+        "**Evaluation Methodology Safeguards:** 80/20 train/test split executed strictly prior to vectorization "
+        "to prevent data leakage. Final architecture selected via Validation Macro F1 across 98 systematic configurations."
     )
 
     metrics_data, comparison_df = load_evaluation_summary()
@@ -617,29 +629,73 @@ elif selected_section == "MODEL EVALUATION":
         base = metrics_data["baseline"]
         improved = metrics_data["final_model"]
 
-        # Comparison KPI Cards
+        render_section_header("Holdout Test Set Performance (N = 5,000)", "Comprehensive comparative evaluation against initial baseline configuration.")
+
+        # Comparison KPI Cards (Standardized Responsive 4-Column Grid)
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            delta_acc = improved["accuracy"] - base["accuracy"]
-            st.metric("Overall Accuracy", f"{improved['accuracy']:.2%}", delta=f"{delta_acc:+.2%}")
+            delta_acc = (improved["accuracy"] - base["accuracy"]) * 100
+            render_metric_card(
+                "Overall Accuracy",
+                f"{improved['accuracy']:.2%}",
+                delta=f"{delta_acc:+.2f} pp",
+                help="Test accuracy on 5,000 holdout complaints",
+            )
         with col2:
-            delta_mf1 = improved["macro_f1"] - base["macro_f1"]
-            st.metric("Macro F1-Score", f"{improved['macro_f1']:.4f}", delta=f"{delta_mf1:+.4f}")
+            delta_mf1 = (improved["macro_f1"] - base["macro_f1"]) * 100
+            render_metric_card(
+                "Macro F1",
+                f"{improved['macro_f1']:.2%}",
+                delta=f"{delta_mf1:+.2f} pp",
+                help="Unweighted average F1 across all 18 classes",
+            )
         with col3:
-            delta_wf1 = improved["weighted_f1"] - base["weighted_f1"]
-            st.metric("Weighted F1-Score", f"{improved['weighted_f1']:.4f}", delta=f"{delta_wf1:+.4f}")
+            delta_wf1 = (improved["weighted_f1"] - base["weighted_f1"]) * 100
+            render_metric_card(
+                "Weighted F1",
+                f"{improved['weighted_f1']:.2%}",
+                delta=f"{delta_wf1:+.2f} pp",
+                help="Support-weighted F1 across all 18 classes",
+            )
         with col4:
-            st.metric("Test Partition Size", f"{improved['test_samples']:,} samples", delta=f"+{improved['test_samples'] - base['samples']:,}")
+            render_metric_card(
+                "Test Partition",
+                f"{improved['test_samples']:,} complaints",
+                delta=f"+{improved['test_samples'] - base['samples']:,} vs baseline",
+                help="Untouched holdout evaluation split",
+            )
 
         col5, col6, col7, col8 = st.columns(4)
         with col5:
-            st.metric("Macro Precision", f"{improved['macro_precision']:.4f}", delta=f"{improved['macro_precision'] - base['macro_precision']:+.4f}")
+            delta_mprec = (improved["macro_precision"] - base["macro_precision"]) * 100
+            render_metric_card(
+                "Macro Precision",
+                f"{improved['macro_precision']:.2%}",
+                delta=f"{delta_mprec:+.2f} pp",
+                help="Unweighted average precision across all classes",
+            )
         with col6:
-            st.metric("Macro Recall", f"{improved['macro_recall']:.4f}", delta=f"{improved['macro_recall'] - base['macro_recall']:+.4f}")
+            delta_mrec = (improved["macro_recall"] - base["macro_recall"]) * 100
+            render_metric_card(
+                "Macro Recall",
+                f"{improved['macro_recall']:.2%}",
+                delta=f"{delta_mrec:+.2f} pp",
+                help="Unweighted average recall across all classes",
+            )
         with col7:
-            st.metric("Weighted Precision", f"{improved['weighted_precision']:.4f}", delta=f"{improved['weighted_precision'] - base['weighted_precision']:+.4f}")
+            delta_wprec = (improved["weighted_precision"] - base["weighted_precision"]) * 100
+            render_metric_card(
+                "Weighted Precision",
+                f"{improved['weighted_precision']:.2%}",
+                delta=f"{delta_wprec:+.2f} pp",
+                help="Support-weighted precision across all classes",
+            )
         with col8:
-            st.metric("Total Vocabulary Features", f"{improved['total_features']:,}")
+            render_metric_card(
+                "Total Features",
+                f"{improved['total_features']:,}",
+                help="Combined Word (1,1) + Char (3,5) vocabulary dimensions",
+            )
 
         st.markdown("---")
 
@@ -653,34 +709,29 @@ elif selected_section == "MODEL EVALUATION":
         ])
 
         with tab0:
-            st.markdown("#### Post-Audit Empirical Comparison: 18-Class vs. Improved vs. Normalized 11-Class")
-            st.markdown(
-                """
-                Following the comprehensive model plateau audit, we evaluate:
-                1. **Original 18-Class Baseline** (Standard Preprocessing: regex cleaning, punctuation removed, stopwords removed).
-                2. **Improved 18-Class Model** (Minimal Preprocessing: retaining punctuation, stopwords, digits, and negation context).
-                3. **Normalized 11-Class Model** (Conservative Taxonomy: resolving historical administrative synonymies).
-                """
+            render_section_header(
+                "Post-Audit Empirical Comparison",
+                "Contrasting the original 18-class baseline, improved representation, and normalized 11-class taxonomy.",
             )
 
             # Executive KPI Cards for the 3 Models
             c1, c2, c3 = st.columns(3)
             with c1:
-                st.markdown("##### ORIGINAL 18-CLASS BASELINE")
                 b_row = imp_df[imp_df["experiment"].str.contains("Baseline", case=False, na=False)] if imp_df is not None and not imp_df.empty else None
                 if b_row is not None and not b_row.empty:
                     b_acc = float(b_row.iloc[0].get("test_accuracy", 0.6982))
                     b_mf1 = float(b_row.iloc[0].get("test_macro_f1", 0.5088))
                     b_wf1 = float(b_row.iloc[0].get("test_weighted_f1", 0.6978))
-                    st.metric("Test Accuracy", f"{b_acc:.2%}")
-                    st.caption(f"Macro F1: {b_mf1:.4f} | Weighted F1: {b_wf1:.4f}")
-                    st.caption(f"Validation: Acc {float(b_row.iloc[0]['accuracy']):.2%} | Macro F1: {float(b_row.iloc[0]['macro_f1']):.4f}")
+                    v_bacc = float(b_row.iloc[0]["accuracy"])
+                    v_bmf1 = float(b_row.iloc[0]["macro_f1"])
+                    render_metric_card("Original 18-Class Baseline", f"{b_acc:.2%}", help="Original 18 CFPB classes with standard preprocessing")
+                    st.caption(f"Macro F1: {b_mf1:.2%} | Weighted F1: {b_wf1:.2%}")
+                    st.caption(f"Validation: Acc {v_bacc:.2%} | Macro F1: {v_bmf1:.2%}")
                 else:
-                    st.metric("Test Accuracy", "69.82%")
-                    st.caption("Macro F1: 0.5088 | Weighted F1: 0.6978")
-                    st.caption("Validation: Acc 69.95% | Macro F1: 0.5184")
+                    render_metric_card("Original 18-Class Baseline", "69.82%", help="Original 18 CFPB classes with standard preprocessing")
+                    st.caption("Macro F1: 50.88% | Weighted F1: 69.78%")
+                    st.caption("Validation: Acc 69.95% | Macro F1: 51.84%")
             with c2:
-                st.markdown("##### IMPROVED 18-CLASS MODEL")
                 if imp_df is not None and not imp_df.empty:
                     imp_row = imp_df[
                         imp_df["experiment"].str.contains("Minimal", case=False, na=False)
@@ -690,19 +741,23 @@ elif selected_section == "MODEL EVALUATION":
                         i_acc = float(imp_row.iloc[0].get("test_accuracy", imp_row.iloc[0]["accuracy"]))
                         i_mf1 = float(imp_row.iloc[0].get("test_macro_f1", imp_row.iloc[0]["macro_f1"]))
                         i_wf1 = float(imp_row.iloc[0].get("test_weighted_f1", imp_row.iloc[0]["weighted_f1"]))
-                        st.metric("Test Accuracy", f"{i_acc:.2%}", delta=f"{i_acc - 0.6982:+.2%}")
-                        st.caption(f"Macro F1: {i_mf1:.4f} ({i_mf1 - 0.5088:+.4f}) | Weighted F1: {i_wf1:.4f}")
                         v_acc = float(imp_row.iloc[0]["accuracy"])
                         v_mf1 = float(imp_row.iloc[0]["macro_f1"])
-                        st.caption(f"Validation: Acc {v_acc:.2%} (+1.38 pp) | Macro F1: {v_mf1:.4f} (+1.66 pp)")
+                        render_metric_card(
+                            "Improved 18-Class Model",
+                            f"{i_acc:.2%}",
+                            delta=f"{(i_acc - 0.6982) * 100:+.2f} pp",
+                            help="Minimal preprocessing retaining context & punctuation",
+                        )
+                        st.caption(f"Macro F1: {i_mf1:.2%} ({(i_mf1 - 0.5088) * 100:+.2f} pp) | Weighted F1: {i_wf1:.2%}")
+                        st.caption(f"Validation: Acc {v_acc:.2%} (+1.38 pp) | Macro F1: {v_mf1:.2%} (+1.66 pp)")
                     else:
-                        st.metric("Test Accuracy", "Pending", delta="")
+                        render_metric_card("Improved 18-Class Model", "Pending")
                         st.caption("Awaiting experiment execution")
                 else:
-                    st.metric("Test Accuracy", "Pending", delta="")
+                    render_metric_card("Improved 18-Class Model", "Pending")
                     st.caption("Awaiting experiment execution")
             with c3:
-                st.markdown("##### NORMALIZED 11-CLASS MODEL")
                 if imp_df is not None and not imp_df.empty:
                     norm_row = imp_df[
                         imp_df["experiment"].str.contains("Minimal", case=False, na=False)
@@ -712,16 +767,16 @@ elif selected_section == "MODEL EVALUATION":
                         n_acc = float(norm_row.iloc[0].get("test_accuracy", norm_row.iloc[0]["accuracy"]))
                         n_mf1 = float(norm_row.iloc[0].get("test_macro_f1", norm_row.iloc[0]["macro_f1"]))
                         n_wf1 = float(norm_row.iloc[0].get("test_weighted_f1", norm_row.iloc[0]["weighted_f1"]))
-                        st.metric("Test Accuracy", f"{n_acc:.2%}", delta=None)
-                        st.caption(f"Macro F1: {n_mf1:.4f} | Weighted F1: {n_wf1:.4f}")
+                        render_metric_card("Normalized 11-Class Model", f"{n_acc:.2%}", help="Conservative taxonomy resolving administrative renames")
+                        st.caption(f"Macro F1: {n_mf1:.2%} | Weighted F1: {n_wf1:.2%}")
                         st.caption("Re-formulated Task: Administrative synonymies normalized into 11 broad groups.")
                     else:
-                        st.metric("Test Accuracy", "81.90%", delta=None)
-                        st.caption("Macro F1: 0.6329 | Weighted F1: 0.8196")
+                        render_metric_card("Normalized 11-Class Model", "81.90%")
+                        st.caption("Macro F1: 63.29% | Weighted F1: 81.96%")
                         st.caption("Re-formulated Task: Administrative synonymies normalized into 11 broad groups.")
                 else:
-                    st.metric("Test Accuracy", "81.90%", delta=None)
-                    st.caption("Macro F1: 0.6329 | Weighted F1: 0.8196")
+                    render_metric_card("Normalized 11-Class Model", "81.90%")
+                    st.caption("Macro F1: 63.29% | Weighted F1: 81.96%")
                     st.caption("Re-formulated Task: Administrative synonymies normalized into 11 broad groups.")
 
             st.markdown("---")
@@ -729,12 +784,16 @@ elif selected_section == "MODEL EVALUATION":
             # Interactive Plotly Chart
             if imp_df is not None:
                 fig_post = create_post_audit_model_comparison_chart(imp_df, use_test_metrics=True)
-                st.plotly_chart(fig_post, use_container_width=True, config={"displayModeBar": True, "displaylogo": False})
+                render_chart_card(
+                    fig_post,
+                    title="Model Improvement Benchmark Comparison",
+                    description="Accuracy, Macro F1, and Weighted F1 across the 3 evaluation regimes on the holdout test set.",
+                )
 
             # Tabular Benchmark Comparison
             if imp_df is not None:
-                st.markdown("##### Formal Model Improvement Benchmark Table")
-                st.dataframe(imp_df, use_container_width=True)
+                render_section_header("Formal Model Improvement Benchmark Table", "Complete metrics across validation and holdout test partitions.")
+                st.dataframe(imp_df, width="stretch")
 
             if tax_comp_df is not None:
                 with st.expander("Taxonomy Formulation Model Comparison (18-Class vs. 11-Class)"):
@@ -742,7 +801,7 @@ elif selected_section == "MODEL EVALUATION":
                         "Controlled comparison demonstrating performance across task definitions "
                         "(original 18 CFPB classes vs conservative 11 normalized product domains)."
                     )
-                    st.dataframe(tax_comp_df, use_container_width=True)
+                    st.dataframe(tax_comp_df, width="stretch")
 
             if hier_df is not None:
                 with st.expander("Classical Hierarchical Classifier Experiment Results"):
@@ -750,32 +809,39 @@ elif selected_section == "MODEL EVALUATION":
                         "Two-stage classical hierarchy: Stage 1 predicts 11 normalized product domains; "
                         "Stage 2 uses local text-only classifiers to resolve historical variants."
                     )
-                    st.dataframe(hier_df, use_container_width=True)
+                    st.dataframe(hier_df, width="stretch")
 
             if post_audit_err is not None:
                 with st.expander("Post-Audit Error Analysis Decomposition (Validation Split N=4,000)"):
                     ec1, ec2, ec3 = st.columns(3)
                     with ec1:
-                        st.metric("Baseline Total Errors", f"{post_audit_err.get('baseline_total_errors', 1202):,}")
+                        render_metric_card("Baseline Total Errors", f"{post_audit_err.get('baseline_total_errors', 1202):,}")
                     with ec2:
-                        st.metric("Improved Total Errors", f"{post_audit_err.get('improved_total_errors', 1147):,}", delta=f"-{post_audit_err.get('net_errors_eliminated', 55)}")
+                        render_metric_card("Improved Total Errors", f"{post_audit_err.get('improved_total_errors', 1147):,}", delta=f"-{post_audit_err.get('net_errors_eliminated', 55)}")
                     with ec3:
-                        st.metric("Historical Sibling Errors", f"{post_audit_err.get('improved_sibling_errors', 462):,}", help="Errors between administrative renames sharing identical vocabulary.")
+                        render_metric_card("Historical Sibling Errors", f"{post_audit_err.get('improved_sibling_errors', 462):,}", help="Errors between administrative renames sharing identical vocabulary.")
 
-                    st.markdown("###### Top Confusion Pairs Under Improved Model")
+                    render_section_header("Top Confusion Pairs Under Improved Model")
                     pairs = post_audit_err.get("top_10_confusion_pairs", [])
                     if pairs:
-                        st.dataframe(pd.DataFrame(pairs), use_container_width=True)
+                        st.dataframe(pd.DataFrame(pairs), width="stretch")
 
         with tab1:
-            st.markdown("#### Baseline vs. Improved Model Benchmark Comparison")
+            render_section_header("Baseline vs. Improved Model Benchmark Comparison", "Head-to-head comparison on the controlled test split.")
+            delta_acc_val = (improved["accuracy"] - base["accuracy"]) * 100
+            delta_mf1_val = (improved["macro_f1"] - base["macro_f1"]) * 100
+            delta_wf1_val = (improved["weighted_f1"] - base["weighted_f1"]) * 100
+            delta_mprec_val = (improved["macro_precision"] - base["macro_precision"]) * 100
+            delta_mrec_val = (improved["macro_recall"] - base["macro_recall"]) * 100
+            delta_wprec_val = (improved["weighted_precision"] - base["weighted_precision"]) * 100
+
             comp_table = [
-                {"Metric": "Overall Accuracy", "Initial Baseline": f"{base['accuracy']:.2%}", "Improved Final Model": f"{improved['accuracy']:.2%}", "Absolute Improvement": f"{delta_acc:+.2%}"},
-                {"Metric": "Macro F1-Score", "Initial Baseline": f"{base['macro_f1']:.4f}", "Improved Final Model": f"{improved['macro_f1']:.4f}", "Absolute Improvement": f"{delta_mf1:+.4f} (More than doubled)"},
-                {"Metric": "Weighted F1-Score", "Initial Baseline": f"{base['weighted_f1']:.4f}", "Improved Final Model": f"{improved['weighted_f1']:.4f}", "Absolute Improvement": f"{delta_wf1:+.4f}"},
-                {"Metric": "Macro Precision", "Initial Baseline": f"{base['macro_precision']:.4f}", "Improved Final Model": f"{improved['macro_precision']:.4f}", "Absolute Improvement": f"{improved['macro_precision'] - base['macro_precision']:+.4f}"},
-                {"Metric": "Macro Recall", "Initial Baseline": f"{base['macro_recall']:.4f}", "Improved Final Model": f"{improved['macro_recall']:.4f}", "Absolute Improvement": f"{improved['macro_recall'] - base['macro_recall']:+.4f}"},
-                {"Metric": "Weighted Precision", "Initial Baseline": f"{base['weighted_precision']:.4f}", "Improved Final Model": f"{improved['weighted_precision']:.4f}", "Absolute Improvement": f"{improved['weighted_precision'] - base['weighted_precision']:+.4f}"},
+                {"Metric": "Overall Accuracy", "Initial Baseline": f"{base['accuracy']:.2%}", "Improved Final Model": f"{improved['accuracy']:.2%}", "Absolute Improvement": f"{delta_acc_val:+.2f} pp"},
+                {"Metric": "Macro F1-Score", "Initial Baseline": f"{base['macro_f1']:.2%}", "Improved Final Model": f"{improved['macro_f1']:.2%}", "Absolute Improvement": f"{delta_mf1_val:+.2f} pp (More than doubled)"},
+                {"Metric": "Weighted F1-Score", "Initial Baseline": f"{base['weighted_f1']:.2%}", "Improved Final Model": f"{improved['weighted_f1']:.2%}", "Absolute Improvement": f"{delta_wf1_val:+.2f} pp"},
+                {"Metric": "Macro Precision", "Initial Baseline": f"{base['macro_precision']:.2%}", "Improved Final Model": f"{improved['macro_precision']:.2%}", "Absolute Improvement": f"{delta_mprec_val:+.2f} pp"},
+                {"Metric": "Macro Recall", "Initial Baseline": f"{base['macro_recall']:.2%}", "Improved Final Model": f"{improved['macro_recall']:.2%}", "Absolute Improvement": f"{delta_mrec_val:+.2f} pp"},
+                {"Metric": "Weighted Precision", "Initial Baseline": f"{base['weighted_precision']:.2%}", "Improved Final Model": f"{improved['weighted_precision']:.2%}", "Absolute Improvement": f"{delta_wprec_val:+.2f} pp"},
                 {"Metric": "Test Samples", "Initial Baseline": f"{base['samples']:,}", "Improved Final Model": f"{improved['test_samples']:,}", "Absolute Improvement": f"+{improved['test_samples'] - base['samples']:,} samples"},
                 {"Metric": "Feature Representation", "Initial Baseline": "Word TF-IDF (1,2)", "Improved Final Model": "Combined Word(1,1) + Char(3,5)", "Absolute Improvement": "Subword granularity & unigram pruning"},
                 {"Metric": "Class Imbalance Strategy", "Initial Baseline": "None (Standard)", "Improved Final Model": "class_weight='balanced'", "Absolute Improvement": "Minority classes boosted"},
@@ -783,17 +849,16 @@ elif selected_section == "MODEL EVALUATION":
             st.table(pd.DataFrame(comp_table))
 
         with tab2:
-            st.markdown("#### Multi-Class Confusion Matrix (N = 5,000 Test Records)")
+            render_section_header("Multi-Class Confusion Matrix (N = 5,000 Test Records)", "Evaluation on the untouched holdout test partition across 18 classes.")
             _, _, per_cat_df_cm, err_pairs_df_cm = load_error_analysis_data()
             if err_pairs_df_cm is not None and per_cat_df_cm is not None:
                 fig_cm = create_confusion_matrix_heatmap(err_pairs_df_cm, per_cat_df_cm)
-                st.plotly_chart(fig_cm, use_container_width=True, config={"displayModeBar": True, "displaylogo": False})
+                render_chart_card(fig_cm)
             else:
                 st.info("Confusion matrix evaluation data not found.")
 
         with tab3:
-            st.markdown("#### Full Systematic Experiment Comparison Table")
-            st.markdown("Results logged across 98 validation configurations across 7 search stages using identical training/validation splits:")
+            render_section_header("Full Systematic Experiment Comparison Table", "Results logged across 98 validation configurations across 7 search stages using identical training/validation splits:")
             if comparison_df is not None:
                 st.dataframe(
                     comparison_df.style.format({
@@ -804,7 +869,7 @@ elif selected_section == "MODEL EVALUATION":
                         "Val Macro Rec": "{:.4f}",
                         "Fit Time (s)": "{:.2f}"
                     }),
-                    use_container_width=True
+                    width="stretch"
                 )
             else:
                 st.info("results/model_comparison.csv not found.")
@@ -815,15 +880,14 @@ elif selected_section == "MODEL EVALUATION":
 # ----------------------------------------------------------------------
 
 elif selected_section == "ERROR ANALYSIS":
-    st.subheader("Classification Error Analysis")
-    st.markdown(
-        """
-        Comprehensive diagnostic analysis of the **final trained model** evaluated on the untouched
-        **5,000-record holdout test set**. All artifacts are precomputed — the model is **not** modified.
+    render_page_header(
+        title="Classification Error Analysis",
+        subtitle="Diagnostic evaluation of the final trained model on the untouched 5,000-record holdout test set.",
+    )
 
-        > **Note:** This analysis is diagnostic only. The classifier, vectorizers, and train/test splits
-        > are unchanged. Results are loaded from pre-generated CSV and JSON files.
-        """
+    render_info_card(
+        "**Diagnostic Notice:** This analysis is strictly diagnostic. The classifier, vectorizers, and train/test splits "
+        "remain frozen. All metrics and confusion distributions are loaded directly from pre-generated experimental artifacts."
     )
 
     ea_json, bvsi_df, per_cat_df, err_pairs_df = load_error_analysis_data()
@@ -844,22 +908,22 @@ elif selected_section == "ERROR ANALYSIS":
         ])
 
         with tab_overview:
-            st.markdown("#### Final Model — Holdout Test Set Performance (N = 5,000)")
+            render_section_header("Holdout Test Set Performance (N = 5,000)", "Comprehensive generalization metrics under final balanced model configuration.")
             m = ea_json["improved_metrics"]
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric("Overall Accuracy", f"{m['accuracy']:.2%}")
-                st.metric("Macro Precision", f"{m['macro_precision']:.4f}")
+                render_metric_card("Overall Accuracy", f"{m['accuracy']:.2%}")
+                render_metric_card("Macro Precision", f"{m['macro_precision']:.2%}")
             with col2:
-                st.metric("Macro F1-Score", f"{m['macro_f1']:.4f}")
-                st.metric("Macro Recall", f"{m['macro_recall']:.4f}")
+                render_metric_card("Macro F1", f"{m['macro_f1']:.2%}")
+                render_metric_card("Macro Recall", f"{m['macro_recall']:.2%}")
             with col3:
-                st.metric("Weighted F1-Score", f"{m['weighted_f1']:.4f}")
-                st.metric("Weighted Precision", f"{m['weighted_precision']:.4f}")
+                render_metric_card("Weighted F1", f"{m['weighted_f1']:.2%}")
+                render_metric_card("Weighted Precision", f"{m['weighted_precision']:.2%}")
 
             meta = ea_json["analysis_metadata"]
             st.markdown("---")
-            st.markdown("#### Dataset & Split Configuration")
+            render_section_header("Dataset & Split Configuration", "Zero-leakage data partition boundaries across training pool and holdout sets.")
             split_info = {
                 "Partition": ["Full Dataset", "Training Pool", "Train Subset", "Validation Subset", "Holdout Test Set"],
                 "Records": [
@@ -874,7 +938,7 @@ elif selected_section == "ERROR ANALYSIS":
             st.table(pd.DataFrame(split_info))
 
             cfg = ea_json["model_config"]
-            st.markdown("#### Final Model Configuration")
+            render_section_header("Final Model Hyperparameters & Architecture", "Validated configuration selected via Validation Macro F1 optimization.")
             cfg_rows = {
                 "Parameter": [
                     "Classifier", "Solver", "C (regularization)", "class_weight",
@@ -891,14 +955,7 @@ elif selected_section == "ERROR ANALYSIS":
             st.table(pd.DataFrame(cfg_rows))
 
         with tab_baseline:
-            st.markdown("#### Controlled Same-Split Comparison: Baseline vs. Improved Model")
-            st.markdown(
-                """
-                Both models are evaluated on the **identical 5,000-record holdout test set**.
-                The baseline uses the original Word TF-IDF + no class weighting configuration.
-                Only this comparison is a methodologically valid apples-to-apples contrast.
-                """
-            )
+            render_section_header("Controlled Same-Split Comparison: Baseline vs. Improved Model", "Both models evaluated on the identical 5,000-record holdout test set.")
             if bvsi_df is not None:
                 styled_bvsi = bvsi_df.copy()
                 styled_bvsi.columns = [
@@ -915,13 +972,13 @@ elif selected_section == "ERROR ANALYSIS":
                         "Absolute Diff (pp)": "{:+.4f}",
                         "Relative Change (%)": "{:+.2f}%",
                     }),
-                    use_container_width=True,
+                    width="stretch",
                 )
             else:
                 st.info("baseline_vs_improved.csv not found.")
 
         with tab_pairs:
-            st.markdown("#### Top Confusion Pairs (Actual → Predicted)")
+            render_section_header("Top Confusion Pairs (Actual → Predicted)", "Most frequent pairwise misclassifications on the holdout test set.")
             top_pairs = pd.DataFrame(ea_json["top20_confusion_pairs"])
             if not top_pairs.empty:
                 top_pairs.columns = [
@@ -932,19 +989,19 @@ elif selected_section == "ERROR ANALYSIS":
                         "Error Count": "{:,}",
                         "% of Actual Class": "{:.2f}%",
                     }).background_gradient(subset=["Error Count"], cmap="Reds"),
-                    use_container_width=True,
+                    width="stretch",
                 )
 
             st.markdown("---")
-            st.markdown("#### 18 × 18 Confusion Matrix Heatmap")
+            render_section_header("18 × 18 Confusion Matrix Heatmap", "Normalized multi-class error distribution across all CFPB product classes.")
             if err_pairs_df is not None and per_cat_df is not None:
                 fig_cm = create_confusion_matrix_heatmap(err_pairs_df, per_cat_df)
-                st.plotly_chart(fig_cm, use_container_width=True, config={"displayModeBar": True, "displaylogo": False})
+                render_chart_card(fig_cm)
             else:
                 st.info("Confusion matrix evaluation data not found.")
 
         with tab_percat:
-            st.markdown("#### Per-Category Performance on the 5,000-Record Test Set")
+            render_section_header("Per-Category Performance on Holdout Test Set (N = 5,000)", "Detailed precision, recall, F1, and primary confusion target per product.")
             if per_cat_df is not None:
                 display_df = per_cat_df[[
                     "category", "support", "correct", "incorrect",
@@ -961,12 +1018,16 @@ elif selected_section == "ERROR ANALYSIS":
                         "Precision": "{:.4f}",
                         "Recall": "{:.4f}",
                         "F1": "{:.4f}",
+                        "Support": "{:,}",
+                        "Correct": "{:,}",
+                        "Incorrect": "{:,}",
+                        "Confusion Count": "{:,}",
                     }).background_gradient(subset=["F1"], cmap="RdYlGn"),
-                    use_container_width=True,
+                    width="stretch",
                 )
 
                 st.markdown("---")
-                st.markdown("#### Class Distribution Across Splits vs. Test Recall & F1")
+                render_section_header("Class Distribution Across Splits vs. Test Recall & F1")
                 dist_data = pd.DataFrame(ea_json["class_distribution"]["by_category"])
                 corr_r = ea_json["class_distribution"]["corr_test_support_vs_recall"]
                 corr_f = ea_json["class_distribution"]["corr_test_support_vs_f1"]
@@ -974,18 +1035,12 @@ elif selected_section == "ERROR ANALYSIS":
                     f"Pearson correlation — test support vs recall: **{corr_r:.3f}** | "
                     f"test support vs F1: **{corr_f:.3f}**"
                 )
-                st.dataframe(dist_data, use_container_width=True)
+                st.dataframe(dist_data, width="stretch")
             else:
                 st.info("per_category_metrics.csv not found.")
 
         with tab_confidence:
-            st.markdown("#### Prediction Probability Analysis (LogisticRegression predict_proba)")
-            st.markdown(
-                """
-                The table below summarises the **predicted class probability** distribution
-                for correctly classified and incorrectly classified predictions separately.
-                """
-            )
+            render_section_header("Prediction Probability Analysis", "Distribution of predicted class probabilities for correct vs incorrect predictions.")
             conf = ea_json.get("confidence_analysis", {})
             if conf:
                 correct_pred = conf.get("correct", {}).get("predicted_class_prob", {})
@@ -993,18 +1048,18 @@ elif selected_section == "ERROR ANALYSIS":
 
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("High-Confidence Errors (≥ 0.70)", str(conf.get("high_confidence_errors", "N/A")))
+                    render_metric_card("High-Confidence Errors (>= 0.70)", str(conf.get("high_confidence_errors", "N/A")))
                 with col2:
-                    st.metric("Low-Confidence Errors (< 0.40)", str(conf.get("low_confidence_errors", "N/A")))
+                    render_metric_card("Low-Confidence Errors (< 0.40)", str(conf.get("low_confidence_errors", "N/A")))
                 with col3:
                     total_incorrect = incorrect_pred.get("count", 0)
-                    st.metric("Total Incorrect Predictions", f"{total_incorrect:,}")
+                    render_metric_card("Total Errors", f"{total_incorrect:,}")
 
                 if correct_pred and incorrect_pred:
                     stats_table = {
                         "Statistic": ["Count", "Mean Probability", "Median", "Q1 (25th pct)",
                                       "Q3 (75th pct)", "Min", "Max",
-                                      "% High (≥ 0.70)", "% Medium (0.40–0.69)", "% Low (< 0.40)"],
+                                      "% High (>= 0.70)", "% Medium (0.40-0.69)", "% Low (< 0.40)"],
                         "Correct Predictions": [
                             f"{correct_pred['count']:,}",
                             f"{correct_pred['mean']:.4f}",
@@ -1035,8 +1090,7 @@ elif selected_section == "ERROR ANALYSIS":
                 st.info("Confidence analysis data not found in error_analysis_data.json.")
 
         with tab_examples:
-            st.markdown("#### Representative Error Cases (Top Confusion Pairs)")
-            st.markdown("Up to 5 actual test-set complaints per confusion pair. Complaint texts are truncated for readability.")
+            render_section_header("Representative Error Cases (Top Confusion Pairs)", "Up to 5 actual test-set complaints per confusion pair. Complaint narratives are truncated for readability.")
             examples = ea_json.get("error_examples", {})
             if not examples:
                 st.info("Error examples not available.")
@@ -1058,9 +1112,12 @@ elif selected_section == "ERROR ANALYSIS":
                                 st.markdown(f"- **Predicted:** `{ex['predicted_category']}`")
                                 st.markdown("**Complaint Text (truncated):**")
                                 st.text_area(
-                                    "", value=ex["complaint_text_truncated"],
-                                    height=150, disabled=True,
+                                    "Complaint Narrative Truncated",
+                                    value=ex["complaint_text_truncated"],
+                                    height=140,
+                                    disabled=True,
                                     key=f"ex_{selected_pair}_{i}",
+                                    label_visibility="collapsed",
                                 )
 
 
@@ -1069,18 +1126,15 @@ elif selected_section == "ERROR ANALYSIS":
 # ----------------------------------------------------------------------
 
 elif selected_section == "TAXONOMY ANALYSIS":
-    st.subheader("Taxonomy-Aware Complaint Classification Analysis")
-    st.markdown(
-        """
-        Investigating whether CFPB complaint classification difficulty is driven by linguistic ambiguity or by 
-        **documented administrative taxonomy revisions** (April 2017 and 2019) that left historical label variants in the database.
+    render_page_header(
+        title="Taxonomy Analysis",
+        subtitle="Investigating whether classification difficulty is driven by linguistic ambiguity or CFPB administrative label variants.",
+    )
 
-        > **Academic Objective:** This milestone tests task formulation rather than tuning for maximum F1.
-        > The original 18-category model remains the primary reference. Two deterministic taxonomies 
-        > were pre-defined before evaluation based on official CFPB sources:
-        > - **v1 Conservative (11 Categories):** Consolidates only CFPB-documented renames/mergers; keeps `Consumer Loan` separate.
-        > - **v2 Broad (10 Categories):** Additionally merges `Consumer Loan` into the consumer/small-dollar loan group.
-        """
+    render_info_card(
+        "**Academic Objective:** This milestone tests task formulation rather than tuning for maximum F1. "
+        "The original 18-category model remains the primary reference. Two deterministic taxonomies "
+        "were pre-defined before evaluation based on official CFPB sources (April 2017 & 2019 form revisions)."
     )
 
     tax_json, comp_df, audit_json, audit_df, cfg_v1, cfg_v2 = load_taxonomy_analysis_data()
@@ -1095,16 +1149,20 @@ elif selected_section == "TAXONOMY ANALYSIS":
 
         c1, c2, c3, c4 = st.columns(4)
         with c1:
-            st.metric("Ref. (18 Cats) Accuracy", f"{ref_m['accuracy']:.2%}")
-            st.caption("Macro F1: " + f"{ref_m['macro_f1']:.4f}")
+            render_metric_card("Ref. (18 Cats) Accuracy", f"{ref_m['accuracy']:.2%}")
+            st.caption(f"Macro F1: {ref_m['macro_f1']:.2%}")
         with c2:
-            st.metric("v1 (11 Cats) Accuracy", f"{v1_m['accuracy']:.2%}", delta=f"{v1_m['accuracy'] - ref_m['accuracy']:+.2%}")
-            st.caption(f"Macro F1: {v1_m['macro_f1']:.4f} ({v1_m['macro_f1'] - ref_m['macro_f1']:+.4f})")
+            delta_v1 = (v1_m['accuracy'] - ref_m['accuracy']) * 100
+            delta_v1_f1 = (v1_m['macro_f1'] - ref_m['macro_f1']) * 100
+            render_metric_card("v1 (11 Cats) Accuracy", f"{v1_m['accuracy']:.2%}", delta=f"{delta_v1:+.2f} pp")
+            st.caption(f"Macro F1: {v1_m['macro_f1']:.2%} ({delta_v1_f1:+.2f} pp)")
         with c3:
-            st.metric("v2 (10 Cats) Accuracy", f"{v2_m['accuracy']:.2%}", delta=f"{v2_m['accuracy'] - ref_m['accuracy']:+.2%}")
-            st.caption(f"Macro F1: {v2_m['macro_f1']:.4f} ({v2_m['macro_f1'] - ref_m['macro_f1']:+.4f})")
+            delta_v2 = (v2_m['accuracy'] - ref_m['accuracy']) * 100
+            delta_v2_f1 = (v2_m['macro_f1'] - ref_m['macro_f1']) * 100
+            render_metric_card("v2 (10 Cats) Accuracy", f"{v2_m['accuracy']:.2%}", delta=f"{delta_v2:+.2f} pp")
+            st.caption(f"Macro F1: {v2_m['macro_f1']:.2%} ({delta_v2_f1:+.2f} pp)")
         with c4:
-            st.metric("Intra-Group Errors", f"{audit_counts.get('conservative_intra_errors', 608)} / {audit_counts.get('total_test_errors', 1522)}")
+            render_metric_card("Intra-Group Errors", f"{audit_counts.get('conservative_intra_errors', 608):,} / {audit_counts.get('total_test_errors', 1522):,}")
             st.caption("39.9% of all test errors are intra-variant")
 
         st.markdown("---")
@@ -1118,12 +1176,8 @@ elif selected_section == "TAXONOMY ANALYSIS":
         ])
 
         with tab_comp:
-            st.markdown("#### Comparative Experimental Results Across Formulations")
-            st.markdown(
-                "All models trained using the identical 20,000-sample pool (16k train / 4k val) and evaluated on the "
-                "identical 5,000-sample untouched holdout test set using Word+Char TF-IDF (237,148 features) and Logistic Regression."
-            )
-            st.dataframe(comp_df, use_container_width=True)
+            render_section_header("Comparative Experimental Results Across Formulations", "All models trained on 20,000 pool and evaluated on identical 5,000 holdout set.")
+            st.dataframe(comp_df, width="stretch")
             st.info(
                 "**Key Observation:** Both normalized formulations produce higher Accuracy (~81-82%) and Macro F1 (~68-73%). "
                 "Crucially, this is **not** evidence that the normalized models are inherently superior classifiers; rather, "
@@ -1131,7 +1185,7 @@ elif selected_section == "TAXONOMY ANALYSIS":
             )
 
         with tab_mapping:
-            st.markdown("#### Documented Taxonomy Formulations & CFPB Rationale")
+            render_section_header("Documented Taxonomy Formulations & CFPB Rationale", "Historical policy revisions documented in CFPB releases.")
             tax_choice = st.radio("Select Taxonomy Variant:", ["v1 Conservative (11 Categories)", "v2 Broad (10 Categories)"], horizontal=True)
             chosen_cfg = cfg_v1 if "v1" in tax_choice else cfg_v2
 
@@ -1146,20 +1200,20 @@ elif selected_section == "TAXONOMY ANALYSIS":
                         "CFPB Documentation Source": entry["cfpb_source"],
                         "Historical Context / Rationale": entry["evidence_description"]
                     })
-                st.dataframe(pd.DataFrame(mapping_rows), use_container_width=True)
+                st.dataframe(pd.DataFrame(mapping_rows), width="stretch")
 
         with tab_loss:
-            st.markdown("#### Information Loss Analysis")
+            render_section_header("Information Loss Analysis", "Quantifying granularity lost when collapsing historical variants into broad categories.")
             loss_choice = st.radio("Select Variant for Information Loss:", ["v1 Conservative (11 Categories)", "v2 Broad (10 Categories)"], horizontal=True, key="loss_radio")
             active_loss = tax_json["models"]["v1_conservative"]["information_loss"] if "v1" in loss_choice else tax_json["models"]["v2_broad"]["information_loss"]
 
             col_a, col_b, col_c = st.columns(3)
             with col_a:
-                st.metric("Total Records Affected", f"{active_loss['total_records_affected']:,}")
+                render_metric_card("Total Records Affected", f"{active_loss['total_records_affected']:,}")
             with col_b:
-                st.metric("Dataset Share Affected", f"{active_loss['percentage_dataset_affected']}%")
+                render_metric_card("Dataset Share Affected", f"{active_loss['percentage_dataset_affected']}%")
             with col_c:
-                st.metric("Original Categories Merged", f"{active_loss['num_labels_merged']} -> {len(active_loss['merged_groups'])}")
+                render_metric_card("Original Categories Merged", f"{active_loss['num_labels_merged']} -> {len(active_loss['merged_groups'])}")
 
             loss_rows = []
             cfg_active = cfg_v1 if "v1" in loss_choice else cfg_v2
@@ -1171,10 +1225,10 @@ elif selected_section == "TAXONOMY ANALYSIS":
                     "Records Remapped": f"{details['records_affected']:,} ({details['percentage_of_dataset']}%)",
                     "Specific Information Lost": info_dict.get(grp, "N/A")
                 })
-            st.dataframe(pd.DataFrame(loss_rows), use_container_width=True)
+            st.dataframe(pd.DataFrame(loss_rows), width="stretch")
 
         with tab_cross:
-            st.markdown("#### Dissecting Error Elimination: Task Collapse vs. Classifier Generalization")
+            render_section_header("Dissecting Error Elimination: Task Collapse vs. Classifier Generalization", "Partitioning mechanical error elimination from true generalization gains.")
             dissect_v1 = tax_json["models"]["v1_conservative"]["cross_task_error_dissection"]
             dissect_v2 = tax_json["models"]["v2_broad"]["cross_task_error_dissection"]
 
@@ -1208,7 +1262,7 @@ elif selected_section == "TAXONOMY ANALYSIS":
             st.table(dissect_df)
 
         with tab_percat:
-            st.markdown("#### Per-Category Performance on Normalized Holdout Test Set (N=5,000)")
+            render_section_header("Per-Category Performance on Normalized Holdout Test Set (N=5,000)", "Detailed normalized performance across collapsed categories.")
             variant_sel = st.selectbox("Select Model to Inspect:", ["v1 Conservative (11 Categories)", "v2 Broad (10 Categories)"])
             m_key = "v1_conservative" if "v1" in variant_sel else "v2_broad"
             per_cat_data = pd.DataFrame(tax_json["models"][m_key]["per_category"])
@@ -1219,7 +1273,7 @@ elif selected_section == "TAXONOMY ANALYSIS":
                     "f1": "{:.4f}",
                     "support": "{:,}"
                 }).background_gradient(subset=["f1"], cmap="RdYlGn"),
-                use_container_width=True
+                width="stretch"
             )
 
 
@@ -1228,14 +1282,9 @@ elif selected_section == "TAXONOMY ANALYSIS":
 # ----------------------------------------------------------------------
 
 elif selected_section == "SIMILARITY RETRIEVAL":
-    st.subheader("Cosine Similarity Nearest-Neighbor Complaint Retrieval")
-    st.markdown(
-        """
-        Find historically similar customer complaints by projecting a grievance into the learned 
-        **TF-IDF vector space** and computing **pairwise cosine similarities** against the indexed corpus.
-        
-        $$\\text{Cosine Similarity}(\\mathbf{q}, \\mathbf{d}) = \\frac{\\mathbf{q} \\cdot \\mathbf{d}}{\\|\\mathbf{q}\\|_2 \\|\\mathbf{d}\\|_2}$$
-        """
+    render_page_header(
+        title="Similarity Retrieval",
+        subtitle="Vector-space nearest-neighbor complaint retrieval using learned TF-IDF representations and sparse cosine similarity.",
     )
 
     df_corpus, fitted_vec, corpus_matrix = build_indexed_corpus(nrows=500)
@@ -1245,6 +1294,8 @@ elif selected_section == "SIMILARITY RETRIEVAL":
     else:
         st.sidebar.markdown(f"**Indexed Corpus:** {len(df_corpus)} complaints")
         st.sidebar.markdown(f"**Vocabulary Features:** {corpus_matrix.shape[1]:,}")
+
+        render_section_header("Query Selection & Search Configuration", "Choose an authentic complaint from the indexed corpus or enter custom grievance text.")
 
         input_choice = st.radio(
             "Select Query Source:",
@@ -1273,7 +1324,7 @@ elif selected_section == "SIMILARITY RETRIEVAL":
 
         top_k = st.slider("Number of similar complaints to retrieve (k):", min_value=1, max_value=10, value=5)
 
-        if st.button("Search Similar Complaints", type="primary"):
+        if st.button("Search Similar Complaints", type="primary", width="stretch"):
             if not query_narrative.strip():
                 st.warning("Please provide a non-empty complaint narrative.")
             else:
@@ -1291,13 +1342,13 @@ elif selected_section == "SIMILARITY RETRIEVAL":
 
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("Retrieved Matches", len(results))
+                    render_metric_card("Retrieved Matches", str(len(results)))
                 with col2:
-                    st.metric("Corpus Size", len(df_corpus))
+                    render_metric_card("Corpus Size", f"{len(df_corpus):,}")
                 with col3:
-                    st.metric("Top Similarity Score", f"{top_score:.4f}")
+                    render_metric_card("Top Similarity Score", f"{top_score:.4f}")
 
-                st.markdown("### Top Ranked Similar Complaints")
+                render_section_header("Top Ranked Similar Complaints", "Ranked nearest neighbors based on pairwise cosine similarity against query vector.")
                 for _, row in results.iterrows():
                     rank = int(row["rank"])
                     comp_id = row["complaint_id"]
@@ -1322,12 +1373,9 @@ elif selected_section == "SIMILARITY RETRIEVAL":
 # ----------------------------------------------------------------------
 
 elif selected_section == "CLASSIFICATION":
-    st.subheader("Supervised Complaint Categorisation")
-    st.markdown(
-        """
-        Classify customer complaint narratives into CFPB financial product categories 
-        using the improved **Class-Balanced Model** operating directly on sparse TF-IDF representations.
-        """
+    render_page_header(
+        title="Supervised Classification",
+        subtitle="Classify complaint narratives into CFPB product categories using the trained class-balanced logistic regression model.",
     )
 
     clf_model, vec_model = load_trained_model()
@@ -1339,6 +1387,8 @@ elif selected_section == "CLASSIFICATION":
         st.sidebar.markdown(f"**Trained Classes:** {len(clf_model.classes_)}")
         dim_str = f"{vec_model[0].vocabulary_.__len__() + vec_model[1].vocabulary_.__len__():,}" if isinstance(vec_model, tuple) else f"{len(vec_model.vocabulary_):,}"
         st.sidebar.markdown(f"**Vocabulary Features:** {dim_str}")
+
+        render_section_header("Complaint Narrative Input", "Select an authentic complaint from the local database or enter a custom narrative to test inference.")
 
         input_mode = st.radio(
             "Select Narrative Source:",
@@ -1374,7 +1424,7 @@ elif selected_section == "CLASSIFICATION":
                 placeholder="Type or paste customer complaint text here..."
             )
 
-        if st.button("Categorise Complaint", type="primary"):
+        if st.button("Categorise Complaint", type="primary", width="stretch"):
             if not input_narrative.strip():
                 st.warning("Please provide a complaint narrative before proceeding.")
             else:
@@ -1412,10 +1462,10 @@ elif selected_section == "CLASSIFICATION":
                                 unsafe_allow_html=True,
                             )
                 with col2:
-                    st.metric(conf_label, f"{confidence:.2%}")
+                    render_metric_card(conf_label, f"{confidence:.2%}")
 
                 top5_idx = np.argsort(probabilities)[::-1][:5]
-                st.markdown(f"#### Top 5 Product Categories by {conf_label}")
+                render_section_header("Top 5 Product Categories by Model Confidence", "Probability distribution over most likely category assignments.")
                 for idx in top5_idx:
                     p_cat = clf_model.classes_[idx]
                     p_val = float(probabilities[idx])
@@ -1428,12 +1478,9 @@ elif selected_section == "CLASSIFICATION":
 # ----------------------------------------------------------------------
 
 elif selected_section == "PREPROCESSING":
-    st.subheader("Text Preprocessing & TF-IDF Feature Inspector")
-    st.markdown(
-        """
-        Inspect each stage of the classical text preprocessing pipeline and examine 
-        the extracted TF-IDF feature weights for an authentic complaint narrative.
-        """
+    render_page_header(
+        title="Text Preprocessing & Features",
+        subtitle="Inspect intermediate transformation stages of the classical NLP preprocessing pipeline and extracted TF-IDF weights.",
     )
 
     sample_text = (
@@ -1441,9 +1488,10 @@ elif selected_section == "PREPROCESSING":
         "Called representative XXXX regarding account # 987654. Visited https://bank-dispute.com "
         "but the dispute was rejected without explanation."
     )
+    render_section_header("Input Text & Pipeline Inspection", "Examine noise removal, tokenization, stopword removal, and vocabulary matching.")
     user_text = st.text_area("Input Complaint Narrative to Inspect:", value=sample_text, height=110)
 
-    if st.button("Inspect Preprocessing & Features", type="primary"):
+    if st.button("Inspect Preprocessing & Features", type="primary", width="stretch"):
         if not user_text.strip():
             st.warning("Please provide text to inspect.")
         else:
@@ -1454,13 +1502,13 @@ elif selected_section == "PREPROCESSING":
 
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric("Raw Words", len(user_text.split()))
+                render_metric_card("Raw Words", f"{len(user_text.split()):,}")
             with col2:
-                st.metric("Tokens Extracted", len(tokens))
+                render_metric_card("Tokens Extracted", f"{len(tokens):,}")
             with col3:
-                st.metric("Filtered Tokens", len(filtered_tokens))
+                render_metric_card("Filtered Tokens", f"{len(filtered_tokens):,}")
 
-            st.markdown("#### Preprocessing Stages")
+            render_section_header("Preprocessing Stages", "Sequential transformations applied by the Classical NLP pipeline.")
             st.markdown("**1. Cleaned Text (Noise & Redaction Removal):**")
             st.code(cleaned, language="text")
 
@@ -1487,9 +1535,9 @@ elif selected_section == "PREPROCESSING":
                     ]
                     feature_weights.sort(key=lambda x: x[1], reverse=True)
 
-                    st.markdown("#### Matched Word TF-IDF Features in Vocabulary")
+                    render_section_header("Matched Word TF-IDF Features in Vocabulary", "Non-zero sparse feature weights extracted from the narrative.")
                     df_feats = pd.DataFrame(feature_weights[:15], columns=["Feature (N-Gram)", "TF-IDF Weight"])
-                    st.dataframe(df_feats.style.format({"TF-IDF Weight": "{:.4f}"}), use_container_width=True)
+                    st.dataframe(df_feats.style.format({"TF-IDF Weight": "{:.4f}"}), width="stretch")
                 else:
                     st.info("No matching vocabulary n-grams found in the trained vectorizer.")
 
@@ -1499,7 +1547,12 @@ elif selected_section == "PREPROCESSING":
 # ----------------------------------------------------------------------
 
 elif selected_section == "SYSTEM ARCHITECTURE":
-    st.subheader("System Architecture & Pipeline Design")
+    render_page_header(
+        title="System Architecture",
+        subtitle="End-to-end technical architecture, sparse CSR vector representations, and project engineering milestones.",
+    )
+
+    render_section_header("Architectural Pipeline", "Flow diagram illustrating text ingestion, preprocessing, dual TF-IDF extraction, retrieval, and classification.")
     st.markdown(
         """
         ```text
@@ -1536,26 +1589,26 @@ elif selected_section == "SYSTEM ARCHITECTURE":
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown("### Real-World CFPB Data")
+        render_section_header("Real-World CFPB Data")
         st.write(
             "Trained and evaluated on the authentic CFPB Consumer Complaint Database (25,000 complaints). "
             "Partitioned with zero data leakage: 20,000 training pool and 5,000 untouched test records."
         )
     with col2:
-        st.markdown("### Word + Character Subwords")
+        render_section_header("Word + Character Subwords")
         st.write(
             "Fuses word unigrams with character n-grams (`char`, 3–5) to robustly capture compound terms, "
             "prefixes, suffixes, financial acronyms, and terminology variations in sparse CSR format."
         )
     with col3:
-        st.markdown("### Measured Performance Gain")
+        render_section_header("Measured Performance Gain")
         st.write(
             "Class-balanced optimization and subword character n-grams elevated **Macro F1 from 34.15% to 50.88%** (+16.73 pp gain) "
             "and **Accuracy to 69.82%** on the controlled 5,000-record holdout test set."
         )
 
     st.markdown("---")
-    st.markdown("### Systematic Engineering & Research Milestones")
+    render_section_header("Systematic Engineering & Research Milestones", "Chronological track of project implementation phases.")
     milestones = [
         ("1. Repository Foundation & Scaffolding", "Complete", "6b161cf"),
         ("2. CFPB Dataset Loading & Validation", "Complete", "24752a0"),
