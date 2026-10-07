@@ -150,7 +150,10 @@ Customer-Complaint-NLP/
 │   └── app.py                        # Streamlit web application interface
 │
 ├── models/
-│   └── .gitkeep                      # Serialized models and vectorizers (gitignored)
+│   ├── complaint_classifier.joblib   # Serialized production classifier (~15.7 MB)
+│   ├── tfidf_vectorizer.joblib       # Fitted Word TF-IDF vectorizer (~0.3 MB)
+│   ├── char_vectorizer.joblib        # Fitted Character TF-IDF vectorizer (~3.3 MB)
+│   └── .gitkeep                      # Model directory marker
 │
 ├── results/
 │   ├── confusion_matrix.png          # Multi-class confusion matrix plot
@@ -194,7 +197,7 @@ Customer-Complaint-NLP/
 ## Usage
 
 ### Running Tests
-Execute the full test suite (**215 tests passed**) via pytest:
+Execute the full test suite (**288 tests passed**) via pytest:
 ```bash
 python -m pytest -v
 ```

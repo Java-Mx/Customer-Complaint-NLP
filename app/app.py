@@ -11,7 +11,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 # Ensure project root is on sys.path before importing from src
 ROOT_DIR = Path(__file__).resolve().parents[1]
