@@ -1,330 +1,993 @@
 # Customer Complaint Similarity & Categorisation
 
-An academic Natural Language Processing (NLP) system designed to analyze consumer complaints, compute pairwise semantic similarity using classical vector-space models, categorize complaints into financial product categories using supervised machine learning, and investigate target taxonomy formulations using regulatory data.
+An academic Natural Language Processing (NLP) system designed to analyze consumer financial complaints, compute pairwise semantic similarity using classical vector-space models, categorize complaints into financial product categories using supervised machine learning, and investigate target taxonomy formulations using regulatory data.
 
 ---
 
 ## Overview
 
-Consumer financial institutions receive thousands of customer complaints daily across numerous product verticals (e.g., credit reporting, mortgages, debt collection, credit cards). Manually triaging and finding recurring complaint themes is labor-intensive and prone to inconsistencies.
+Consumer financial institutions receive thousands of customer complaints daily across numerous product verticals, including credit reporting, debt collection, mortgages, credit cards, student loans, and bank accounts. Manually triaging incoming complaints and identifying recurring grievances is labor-intensive, slow, and prone to subjective inconsistencies.
 
 This project implements an end-to-end, interpretable classical NLP pipeline that:
-1. Cleans and standardizes raw unstructured consumer complaint text.
-2. Represents text documents using Term Frequency-Inverse Document Frequency (TF-IDF) with combined word and subword character n-grams.
-3. Computes document-to-document Cosine Similarity to identify complaints with similar textual context.
-4. Classifies complaints into designated categories using supervised machine learning.
-5. Diagnoses failure modes through rigorous confusion matrix, confidence, and error analysis.
-6. Investigates how administrative product taxonomy revisions affect classification task difficulty.
-7. Presents an interactive Streamlit web dashboard for live exploration and inference.
+1. Cleans and standardizes raw unstructured consumer complaint narratives.
+2. Represents text documents using Term Frequency-Inverse Document Frequency (TF-IDF) combining word unigrams and subword character n-grams into a compact 114,493-dimensional sparse matrix.
+3. Computes document-to-document Cosine Similarity to retrieve historically similar complaints.
+4. Classifies complaints into designated product categories using class-balanced Multinomial Logistic Regression.
+5. Diagnoses error patterns and confidence distributions on a 5,000-sample holdout test partition.
+6. Investigates how administrative product taxonomy revisions affect classification task difficulty (Reference 18-class vs. Conservative 11-class vs. Broad 10-class formulations).
+7. Presents an interactive Streamlit web dashboard for live complaint exploration, similarity search, and model inference.
+8. Integrates with the official Consumer Financial Protection Bureau (CFPB) API for real-time live queries without requiring an API key.
+
+In accordance with strict classical machine learning constraints, this system relies exclusively on statistical and classical machine learning methods. Pretrained language models (such as BERT or Transformers) and external generative LLM APIs are deliberately excluded.
 
 ---
 
-## Problem Statement
+## Features
 
-Financial complaints submitted to regulatory bodies contain unstructured, noisy natural language narratives. Organizations need to:
-- Identify recurring issues and retrieve historically similar complaints quickly.
-- Automatically route new customer grievances to the appropriate department without relying on black-box, cost-prohibitive proprietary APIs or deep neural networks.
-- Formulate target classification taxonomies that reflect genuine product boundaries rather than historical administrative artifacts.
+- **Supervised Multi-Class Categorisation**: Multinomial Logistic Regression trained with class-frequency balancing to handle extreme class imbalance across financial product categories.
+- **Subword-Aware TF-IDF Representation**: Feature fusion combining word unigrams with cross-boundary character 3-5 n-grams, capturing domain abbreviations, financial roots, and spelling variations in 114,493 sparse CSR features.
+- **Pairwise Semantic Similarity Retrieval**: High-efficiency sparse cosine similarity search over indexed historical complaints with adjustable top-K retrieval and similarity score thresholding.
+- **Interactive Streamlit Web Dashboard**: Full-featured web interface featuring live complaint analysis, step-by-step pipeline tracing, interactive Plotly charts, model diagnostics, and dataset exploration.
+- **Official CFPB API Integration**: Native HTTP client querying the official public CFPB Consumer Complaint Database API v1 with pagination, narrative filtering, and schema normalization.
+- **Diagnostic Error Analysis**: Exhaustive evaluation on an untouched 5,000-record holdout test set, identifying top confusion pairs, probability calibration, and administrative label synonymy.
+- **Taxonomy Formulation Auditing**: Empirical comparison between the official 18-class reference taxonomy, an 11-class conservative taxonomy, and a 10-class broad taxonomy with error reduction decomposition.
+- **Zero Data Leakage**: Strict split discipline with a 20,000-record training pool (16,000 train / 4,000 validation) and an untouched 5,000-record holdout test partition evaluated strictly once.
+- **Comprehensive Automated Test Suite**: Full unit, integration, UI regression, and deployment artifact verification tests.
+- **Cross-Platform Compatibility**: Validated workflows and setup instructions for Windows, Linux, and macOS.
 
 ---
 
-## Objective
+## Quick Start
 
-- Implement a modular, transparent text preprocessing workflow (tokenization, lowercase normalization, noise reduction, and stopword removal).
-- Build a vectorization engine using Scikit-learn's TF-IDF vectorizer to extract meaningful word and character n-gram feature representations.
-- Implement an efficient Cosine Similarity search mechanism to rank complaints by similarity.
-- Train and validate supervised classical classifiers (Logistic Regression, LinearSVC) to accurately predict complaint categories.
-- Provide comprehensive evaluation reporting (precision, recall, F1-score, confusion matrix) and an interactive web interface.
-- Audit the CFPB product taxonomy to disentangle linguistic classification difficulty from administrative label synonymy.
+For experienced developers seeking immediate setup:
+
+```bash
+# Clone repository
+git clone https://github.com/Java-Mx/Customer-Complaint-NLP.git
+cd Customer-Complaint-NLP
+
+# Create virtual environment
+python -m venv .venv
+
+# Activate virtual environment
+# Windows PowerShell:
+.\.venv\Scripts\Activate.ps1
+# Windows Command Prompt:
+.venv\Scripts\activate.bat
+# Linux / macOS:
+source .venv/bin/activate
+
+# Install dependencies
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+
+# Run test suite
+python -m pytest
+
+# Launch Streamlit dashboard
+streamlit run app/app.py
+```
+
+The Streamlit dashboard will be accessible in your web browser at `http://localhost:8501`.
+
+---
+
+## NLP Pipeline
+
+The pipeline follows a classical, interpretable NLP architecture:
+
+```text
+Raw Consumer Complaint Narrative
+              |
+              v
+      Text Preprocessing
+ (Lowercasing, Cleaning, Tokenization, Stopword Filtering)
+              |
+              v
+     TF-IDF Vectorisation
+ + Word Unigrams: (1, 1), min_df=2, max_df=0.95
+ + Character N-grams: (3, 5), min_df=5, max_df=0.95, analyzer='char'
+              |
+              v
+     Sparse CSR Feature Matrix
+        (114,493 Dimensions)
+              |
+      +-------+-------+
+      |               |
+      v               v
+Cosine Similarity    Supervised Classification
+  (Retrieval)        (Logistic Regression, C=2.0, balanced)
+      |               |
+      v               v
+Top-K Similar        Predicted Category &
+ Historical Records   Confidence Distribution
+                      |
+                      v
+             Evaluation & Diagnostics
+          (Precision, Recall, F1, Confusion Matrix)
+```
+
+1. **Text Preprocessing**: Normalizes text by lowercasing, stripping punctuation artifacts and special symbols, tokenizing into words, and filtering common English stopwords.
+2. **TF-IDF Feature Extraction**: Computes TF-IDF representations separately for word unigrams and character 3-5 n-grams, then stacks them horizontally into a compressed sparse row (CSR) matrix.
+3. **Cosine Similarity Engine**: Measures angular distance between query vectors and pre-vectorized historical complaints to retrieve the most semantically relevant historical complaints.
+4. **Supervised Classification Engine**: Applies class-balanced Multinomial Logistic Regression to compute class posterior probabilities and assign the highest-scoring product label.
+5. **Evaluation and Diagnostics**: Generates classification reports, confusion matrices, and error breakdowns on held-out test data.
+
+---
+
+## Algorithms Used
+
+The project strictly separates feature representation, similarity retrieval, and classification algorithms:
+
+1. **Text Preprocessing (Normalization & Tokenization)**:
+   Regex-based character cleaning, lowercasing, whitespace normalization, and NLTK-based English stopword filtering. An optional minimal preprocessing mode is also supported for character n-gram boundary preservation.
+
+2. **Term Frequency-Inverse Document Frequency (TF-IDF)**:
+   *Role*: Feature representation method (NOT a classification algorithm).
+   Computes statistical weights for terms based on within-document frequency and inverse collection frequency:
+   $$\text{TF-IDF}(t, d, D) = \text{TF}(t, d) \times \left(\log \frac{1 + |D|}{1 + \text{DF}(t, D)} + 1\right)$$
+   Features are L2-normalized across documents.
+
+3. **Word N-Grams**:
+   *Role*: Semantic lexical feature extraction.
+   Configured with unigram span `(1, 1)` to capture individual financial keywords (such as *debt*, *credit*, *escrow*, *overdraft*) while eliminating redundant, noisy bigram features.
+
+4. **Character Subword N-Grams**:
+   *Role*: Subword morphological feature extraction.
+   Configured with span `(3, 5)` using `analyzer='char'` across word boundaries. Captures grammatical affixes, financial stems (*foreclos-*, *delinqu-*), abbreviations (*FCRA*, *CFPB*, *APR*), account masking patterns (*XXXX*), and typographic misspellings.
+
+5. **Sparse Matrix Representation (Scipy CSR)**:
+   *Role*: Memory-efficient sparse feature layout.
+   Uses `scipy.sparse.hstack(..., format="csr")` to join 14,493 word features and 100,000 character features into 114,493 sparse dimensions without allocating dense arrays.
+
+6. **Cosine Similarity**:
+   *Role*: Similarity and document retrieval method (NOT a classifier).
+   Calculates the normalized dot product between L2-normalized sparse document vectors $u$ and $v$:
+   $$\text{Cosine Similarity}(u, v) = \frac{u \cdot v}{\|u\|_2 \|v\|_2}$$
+   Because TF-IDF vectors are L2-normalized during extraction, cosine similarity equals the inner product $u \cdot v^T$, computed efficiently via sparse matrix multiplication.
+
+7. **Multinomial Logistic Regression**:
+   *Role*: Supervised multi-class classification algorithm.
+   Models class probabilities using a softmax linear function:
+   $$P(Y = k \mid X) = \frac{\exp(w_k^T X + b_k)}{\sum_{j=1}^K \exp(w_j^T X + b_j)}$$
+   Optimized with the `lbfgs` solver, inverse regularization parameter $C=2.0$, and `class_weight='balanced'` to scale loss penalties inversely proportional to class frequencies.
+
+8. **Statistical Evaluation Metrics**:
+   *Role*: Quantitative assessment of model discrimination.
+   Evaluates multi-class performance using Macro Precision, Macro Recall, Macro F1, Weighted F1, Overall Accuracy, and an 18-class Confusion Matrix.
+
+---
+
+## Project Architecture
+
+```text
+Customer-Complaint-NLP/
+|
+|-- config/                          # Taxonomy mapping configurations
+|   |-- taxonomy_v1_conservative.json
+|   `-- taxonomy_v2_broad.json
+|
+|-- data/                            # Dataset directory (raw CSV excluded from Git)
+|   |-- README.md                    # Data catalog documentation and download guide
+|   `-- .gitkeep
+|
+|-- docs/                            # In-depth technical documentation
+|   |-- error-analysis.md            # Test set error analysis and confusion analysis
+|   |-- project-updates.md           # Engineering log of completed milestones
+|   |-- taxonomy-analysis.md         # Regulatory taxonomy audit and error decomposition
+|   `-- viva-preparation.md          # Theoretical examination preparation guide
+|
+|-- models/                          # Version-controlled production model artifacts
+|   |-- complaint_classifier.joblib  # Trained Multinomial Logistic Regression model
+|   |-- tfidf_vectorizer.joblib      # Fitted Word TF-IDF vectorizer (14,493 features)
+|   |-- char_vectorizer.joblib       # Fitted Character TF-IDF vectorizer (100,000 features)
+|   `-- .gitkeep
+|
+|-- notebooks/                       # Exploratory Jupyter notebooks
+|   |-- 01_dataset_exploration.ipynb
+|   `-- .gitkeep
+|
+|-- results/                         # Generated evaluation tables and figures
+|   |-- baseline_vs_improved.csv
+|   |-- error_analysis.csv
+|   |-- per_category_metrics.csv
+|   |-- confusion_matrix.png
+|   `-- .gitkeep
+|
+|-- scripts/                         # Standalone execution and evaluation scripts
+|   |-- analyze_taxonomy.py          # Taxonomy group auditing script
+|   |-- diagnostic_audit.py          # System diagnostic inspection
+|   |-- generate_error_analysis.py   # Test set error pair generation
+|   |-- run_experiments.py           # Historical 30-configuration grid search
+|   |-- run_model_improvement.py     # 98-configuration staged model optimization
+|   |-- run_post_audit_experiments.py# Preprocessing and boundary experiments
+|   `-- run_taxonomy_experiment.py   # Normalized taxonomy benchmark experiments
+|
+|-- src/                             # Core Python package modules
+|   |-- __init__.py
+|   |-- cfpb_api.py                  # Official CFPB API HTTP client
+|   |-- classification.py            # Model training, inference, and validation
+|   |-- data_loader.py               # Dataset loading and column resolution
+|   |-- evaluation.py                # Metric calculations and reporting
+|   |-- model_selection.py           # Staged model selection utilities
+|   |-- preprocessing.py             # Text cleaning, normalization, and tokenization
+|   |-- similarity.py                # Cosine similarity search engine
+|   `-- vectorization.py             # Word and character TF-IDF feature extraction
+|
+|-- tests/                           # Pytest automated test suite
+|   |-- __init__.py
+|   |-- test_cfpb_api.py             # CFPB API client unit tests
+|   |-- test_classification.py       # Classifier unit tests
+|   |-- test_data_loader.py          # Dataset loader schema and error handling tests
+|   |-- test_deployment_artifacts.py # Production artifact integrity and dimension tests
+|   |-- test_error_analysis.py       # Error analysis helper tests
+|   |-- test_evaluation.py           # Metric calculation tests
+|   |-- test_model_improvements.py   # Subword vectorizer and classifier tests
+|   |-- test_model_selection.py      # Staged search protocol tests
+|   |-- test_post_audit_improvements.py # Preprocessing variant tests
+|   |-- test_preprocessing.py        # Tokenization and cleaning tests
+|   |-- test_rendered_ui_verification.py # UI component rendering tests
+|   |-- test_run_search.py           # Improvement pipeline execution tests
+|   |-- test_similarity.py           # Cosine similarity ranking tests
+|   |-- test_streamlit_app.py        # Streamlit entry point and helper tests
+|   |-- test_taxonomy.py             # Taxonomy mapping consistency tests
+|   |-- test_ui_charts.py            # Chart generation tests
+|   |-- test_ui_components.py        # Frontend card and badge tests
+|   |-- test_ui_regression_and_html.py # UI layout regression tests
+|   `-- test_vectorization.py        # TF-IDF feature extraction tests
+|
+|-- app/                             # Streamlit web application
+|   |-- __init__.py
+|   |-- app.py                       # Main Streamlit dashboard application
+|   |-- charts.py                    # Plotly chart generation module
+|   `-- ui_components.py             # UI cards, navigation, and styled widgets
+|
+|-- .gitignore                       # Git exclusion rules
+|-- CODE_OF_CONDUCT.md               # Contributor Covenant Code of Conduct
+|-- CONTRIBUTING.md                  # Contribution guidelines and workflow
+|-- LICENSE                          # MIT License
+|-- pyproject.toml                   # Project metadata and pytest configuration
+|-- README.md                        # Project documentation
+`-- requirements.txt                 # Pinned project dependencies
+```
 
 ---
 
 ## Dataset
 
-This project utilizes the official **Consumer Complaint Database** maintained by the **Consumer Financial Protection Bureau (CFPB)**.
-- **Provider**: Consumer Financial Protection Bureau (U.S. Federal Government)
+This project utilizes the official **Consumer Complaint Database** maintained by the **Consumer Financial Protection Bureau (CFPB)**, an agency of the United States federal government.
+
+- **Official Source**: [https://www.consumerfinance.gov/data-research/consumer-complaints/](https://www.consumerfinance.gov/data-research/consumer-complaints/)
+- **Data Catalog Entry**: [https://catalog.data.gov/dataset/consumer-complaint-database](https://catalog.data.gov/dataset/consumer-complaint-database)
+- **Direct Database Archive**: [https://files.consumerfinance.gov/ccdb/complaints.csv.zip](https://files.consumerfinance.gov/ccdb/complaints.csv.zip)
 - **Dataset Size**: **25,000 complaints** across **18 original Product categories**.
-- **Data Partitions**: 20,000 training pool (internally partitioned into 16,000 train and 4,000 validation subsets) and an untouched **5,000-record final test set** created via a stratified split with `random_state=42`.
-- **Primary Text Field**: `Consumer complaint narrative` (unstructured consumer feedback).
+- **Data Partitions**:
+  - **Training Pool**: 20,000 records (internally split into 16,000 training records and 4,000 validation records for model selection).
+  - **Holdout Test Set**: 5,000 records partitioned via stratified sampling with `random_state=42`, kept untouched throughout model selection and evaluated strictly once.
+- **Primary Text Field**: `Consumer complaint narrative` (CFPB portal export format) or `Consumer Complaint` (narrative archive format) or `complaint_what_happened` (API format).
 - **Target Category Field**: `Product` (financial product/service classification).
-- **Data Policy**: Raw dataset files (`*.csv`) are excluded from Git version control via `.gitignore`. See [data/README.md](data/README.md) for data schema details and download instructions.
+- **Identifier Field**: `Complaint ID` (numeric complaint tracking identifier).
+- **Data Policy**: Raw dataset files (`*.csv`) are excluded from Git tracking via `.gitignore` to maintain repository size standards. See [data/README.md](data/README.md) for full schema documentation and column details.
 
 ---
 
-## Methodology
+## Repository Structure
 
-The architecture follows a strict classical NLP paradigm:
-
-```text
-Customer Complaint Narrative
-            ↓
-    Text Preprocessing
- (Lowercasing, Cleaning, Tokenization, Stopword Filtering)
-            ↓
-    TF-IDF Vectorisation
- (Combined Word N-grams (1,2) + Character Subword N-grams (3,5))
-            ↓
-  ┌─────────────────────────────────┐
-  │                                 │
-  ▼                                 ▼
-Cosine Similarity             Classification
-  │                        (Logistic Regression)
-  ▼                                 ▼
-Top-K Similar Complaints       Predicted Category
-                                    ↓
-                              Model Evaluation
-                    (Precision, Recall, F1, Confusion Matrix)
-                                    ↓
-                        Taxonomy Formulation Audit
-                 (Reference 18 vs. Conservative 11 vs. Broad 10)
-```
+The repository organizes code cleanly by responsibility:
+- `src/`: Modular, reusable Python package containing data loading, preprocessing, vectorization, classification, similarity retrieval, evaluation, and API client logic.
+- `app/`: Streamlit dashboard code, custom visual components, and interactive Plotly chart generators.
+- `models/`: Production model artifacts version-controlled in Git for instant local deployment.
+- `data/`: Dataset storage location and documentation (raw CSV files excluded by `.gitignore`).
+- `scripts/`: Reproducible standalone scripts for model training, staged hyperparameter search, error analysis, and taxonomy evaluation.
+- `tests/`: Comprehensive Pytest automated test suite covering all modules, artifacts, and UI components.
+- `docs/`: In-depth reports on error analysis, taxonomy formulation, engineering updates, and viva examination preparation.
 
 ---
 
-## Technologies Used
+## Prerequisites
 
-- **Language**: Python 3.9+
-- **Data Processing**: Pandas, NumPy
-- **Machine Learning & NLP**: Scikit-learn, NLTK
-- **Visualization**: Matplotlib, Seaborn
-- **Web Application**: Streamlit
-- **Development & Testing**: Pytest, Jupyter Notebook
+Before installing and running the project, verify that the following prerequisites are met:
 
-*Note: In accordance with project constraints, this system relies exclusively on classical statistical and machine learning methods. Pretrained language models (e.g., BERT, Transformers) and external LLM APIs are deliberately excluded.*
+- **Python Version**: Python 3.9 or higher (Python 3.9+) is required as specified in `pyproject.toml` (`requires-python = ">=3.9"`). The project does not enforce a single exact Python patch version.
+- **Git**: Git version control is recommended for cloning and version management. Verify with:
+  ```bash
+  git --version
+  ```
+- **Operating System**: Supported on Windows 10/11, Linux (Debian, Ubuntu, Fedora, CentOS, Arch), and macOS (11+).
+- **Hardware Resources**:
+  - Memory: 4 GB RAM minimum (8 GB recommended for running systematic model training scripts).
+  - Storage: Approximately 500 MB for repository files and Python dependencies; approximately 1.5 GB if storing the full uncompressed CFPB CSV locally.
 
 ---
 
-## Project Structure
+## Downloading the Project
 
-```text
-Customer-Complaint-NLP/
-│
-├── config/
-│   ├── taxonomy_v1_conservative.json # 11-category taxonomy configuration & CFPB citations
-│   └── taxonomy_v2_broad.json        # 10-category taxonomy configuration & CFPB citations
-│
-├── data/
-│   ├── README.md                     # Dataset download and schema documentation
-│   └── .gitkeep
-│
-├── docs/
-│   ├── error-analysis.md             # Diagnostic error analysis on 5,000-record test set
-│   ├── project-updates.md            # Chronological engineering & milestone log
-│   ├── taxonomy-analysis.md          # Complete taxonomy formulation & error report
-│   └── viva-preparation.md           # Academic viva defense & technical interview Q&A
-│
-├── notebooks/
-│   ├── 01_dataset_exploration.ipynb  # Exploratory analysis and pipeline demonstrations
-│   └── .gitkeep
-│
-├── src/
-│   ├── __init__.py
-│   ├── cfpb_api.py                   # Official CFPB API client & data fetcher
-│   ├── classification.py             # Classifier training, inference & thresholding
-│   ├── data_loader.py                # Unified dataset loader (local CSV & live API)
-│   ├── evaluation.py                 # Statistical metrics, classification reports & plots
-│   ├── preprocessing.py              # Text cleaning, normalization, and tokenization
-│   ├── similarity.py                 # Cosine similarity calculations & Top-K retrieval
-│   └── vectorization.py              # TF-IDF feature extraction (Word + Char subword fusion)
-│
-├── tests/
-│   ├── __init__.py
-│   ├── test_cfpb_api.py              # Tests for CFPB API integration (16 tests)
-│   ├── test_classification.py        # Tests for classifier training & inference (26 tests)
-│   ├── test_data_loader.py           # Tests for dataset loading & validation (12 tests)
-│   ├── test_error_analysis.py        # Tests for error analysis infrastructure (35 tests)
-│   ├── test_evaluation.py            # Tests for evaluation metrics & validation (16 tests)
-│   ├── test_model_improvements.py    # Tests for subword vectorizer & LinearSVC (11 tests)
-│   ├── test_preprocessing.py         # Tests for preprocessing routines (19 tests)
-│   ├── test_similarity.py            # Tests for cosine similarity search (30 tests)
-│   ├── test_taxonomy.py              # Tests for taxonomy mapping & assertions (14 tests)
-│   └── test_vectorization.py         # Tests for TF-IDF feature extraction (19 tests)
-│
-├── scripts/
-│   ├── analyze_taxonomy.py           # Audits category support, baseline metrics & candidate groups
-│   ├── generate_error_analysis.py    # Generates diagnostic error analysis & confusion pairs
-│   ├── run_experiments.py            # Grid search across 30+ validation configurations
-│   └── run_taxonomy_experiment.py    # Evaluates reference, conservative, and broad taxonomies
-│
-├── app/
-│   └── app.py                        # Streamlit web application interface
-│
-├── models/
-│   ├── complaint_classifier.joblib   # Serialized production classifier (~15.7 MB)
-│   ├── tfidf_vectorizer.joblib       # Fitted Word TF-IDF vectorizer (~0.3 MB)
-│   ├── char_vectorizer.joblib        # Fitted Character TF-IDF vectorizer (~3.3 MB)
-│   └── .gitkeep                      # Model directory marker
-│
-├── results/
-│   ├── confusion_matrix.png          # Multi-class confusion matrix plot
-│   └── .gitkeep
-│
-├── README.md                         # Project overview and documentation
-├── LICENSE                           # MIT License for source code
-├── CODE_OF_CONDUCT.md                # Contributor Covenant Code of Conduct
-├── CONTRIBUTING.md                   # Contribution guidelines & doc sync workflow
-├── .gitignore                        # Files and directories excluded from git
-├── requirements.txt                  # Python package dependencies
-└── pyproject.toml                    # Project metadata and build configuration
-```
+Choose one of three practical methods to download the project:
+
+### Method 1 — Git Clone
+
+This is the recommended method for developers and contributors.
+
+1. Verify that Git is installed on your system:
+   ```bash
+   git --version
+   ```
+2. Clone the repository using Git:
+   ```bash
+   git clone https://github.com/Java-Mx/Customer-Complaint-NLP.git
+   ```
+3. Navigate into the project directory:
+   ```bash
+   cd Customer-Complaint-NLP
+   ```
+
+*Benefits*: Retains complete Git history, enables branch switching, and allows pulling updates using `git pull`.
+
+### Method 2 — Download ZIP
+
+For users who do not have Git installed or prefer a direct archive download:
+
+1. Open a web browser and navigate to the repository:
+   `https://github.com/Java-Mx/Customer-Complaint-NLP`
+2. Click the green **Code** button located near the top right of the file listing.
+3. Select **Download ZIP** from the dropdown menu.
+4. Extract the downloaded ZIP file:
+   - **Windows**: Right-click `Customer-Complaint-NLP-main.zip`, select **Extract All...**, choose your target directory, and click **Extract**.
+   - **Linux**: Open a terminal and run:
+     ```bash
+     unzip Customer-Complaint-NLP-main.zip -d Customer-Complaint-NLP
+     ```
+   - **macOS**: Double-click the downloaded `.zip` file in Finder, or run in Terminal:
+     ```bash
+     unzip Customer-Complaint-NLP-main.zip
+     ```
+5. Open your terminal or command prompt and change into the extracted folder:
+   ```bash
+   cd Customer-Complaint-NLP-main
+   ```
+
+*Note*: Downloading a ZIP archive does not include Git version tracking or the `.git` directory. You will not be able to use Git commands (`git pull`, `git status`) unless you initialize Git manually.
+
+### Method 3 — GitHub Desktop
+
+For users who prefer a graphical Git workflow:
+
+1. Open GitHub Desktop.
+2. Select **File > Clone Repository...** (or click **Clone a repository from the Internet...**).
+3. In the repository URL or repository identifier field, enter:
+   `Java-Mx/Customer-Complaint-NLP`
+   or the complete clone URL:
+   `https://github.com/Java-Mx/Customer-Complaint-NLP.git`
+4. Choose a local destination directory on your computer.
+5. Click **Clone**.
+6. After cloning completes, open the project in your terminal or preferred code editor (such as VS Code or PyCharm).
 
 ---
 
 ## Installation
 
-1. **Clone the repository:**
+Follow the platform-specific instructions below to set up the project on your operating system.
+
+### Windows
+
+1. Open **PowerShell** or **Command Prompt**.
+2. Navigate into the cloned or extracted project folder:
+   ```powershell
+   cd path\to\Customer-Complaint-NLP
+   ```
+3. Verify your Python installation:
+   ```powershell
+   python --version
+   ```
+4. Create a virtual environment:
+   ```powershell
+   python -m venv .venv
+   ```
+5. Activate the virtual environment (see the [Virtual Environment](#virtual-environment) section for execution policy details):
+   ```powershell
+   .\.venv\Scripts\Activate.ps1
+   ```
+6. Upgrade pip and install all project dependencies:
+   ```powershell
+   python -m pip install --upgrade pip
+   python -m pip install -r requirements.txt
+   ```
+
+### Linux
+
+1. Open a terminal.
+2. Navigate into the project folder:
    ```bash
-   git clone https://github.com/Java-Mx/Customer-Complaint-NLP.git
    cd Customer-Complaint-NLP
    ```
-
-2. **Set up a virtual environment:**
+3. Verify your Python 3 installation:
    ```bash
-   python -m venv .venv
-   # Windows:
-   .venv\Scripts\Activate.ps1
-   # Linux/macOS:
+   python3 --version
+   ```
+4. Create a virtual environment:
+   ```bash
+   python3 -m venv .venv
+   ```
+   *Note*: On Debian or Ubuntu distributions, if virtual environment creation fails with a message indicating that `ensurepip` is missing, install the `python3-venv` package:
+   ```bash
+   sudo apt update && sudo apt install -y python3-venv python3-pip
+   ```
+5. Activate the virtual environment:
+   ```bash
    source .venv/bin/activate
    ```
-
-3. **Install dependencies:**
+6. Upgrade pip and install all dependencies:
    ```bash
-   pip install -r requirements.txt
+   python -m pip install --upgrade pip
+   python -m pip install -r requirements.txt
+   ```
+
+### macOS
+
+1. Open **Terminal**.
+2. Navigate into the project folder:
+   ```bash
+   cd Customer-Complaint-NLP
+   ```
+3. Verify your Python 3 installation:
+   ```bash
+   python3 --version
+   ```
+   *Note*: If command-line developer tools are prompted, install them with:
+   ```bash
+   xcode-select --install
+   ```
+4. Create a virtual environment:
+   ```bash
+   python3 -m venv .venv
+   ```
+5. Activate the virtual environment:
+   ```bash
+   source .venv/bin/activate
+   ```
+6. Upgrade pip and install all dependencies:
+   ```bash
+   python -m pip install --upgrade pip
+   python -m pip install -r requirements.txt
    ```
 
 ---
 
-## Usage
+## Virtual Environment
 
-### Running Tests
-Execute the full test suite (**288 tests passed**) via pytest:
+Isolating dependencies inside a Python virtual environment prevents package conflicts with other projects or system tools.
+
+### Windows PowerShell
+
+To create and activate a virtual environment in PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+**PowerShell Execution Policy**:
+If PowerShell returns an execution policy restriction error (`PSSecurityException` or `running scripts is disabled on this system`), allow script execution for the current terminal session:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+```
+
+This bypasses script restrictions only for your current PowerShell window without altering system-wide administrative settings.
+
+To deactivate the virtual environment when finished:
+```powershell
+deactivate
+```
+
+### Windows Command Prompt
+
+If you prefer using standard Windows Command Prompt (`cmd.exe`):
+
+```cmd
+python -m venv .venv
+.venv\Scripts\activate.bat
+```
+
+To deactivate:
+```cmd
+deactivate
+```
+
+### Linux
+
+Using `bash` or `zsh` on Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+To deactivate:
+```bash
+deactivate
+```
+
+### macOS
+
+Using `zsh` or `bash` on macOS:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+To deactivate:
+```bash
+deactivate
+```
+
+---
+
+## Install Dependencies
+
+Once your virtual environment is active, install the project dependencies specified in `requirements.txt`:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+### Key Dependencies
+
+The project relies on a verified, classical machine learning stack:
+
+| Package | Minimum Version | Role in Project |
+|---|---|---|
+| `pandas` | `>=2.0.0` | Dataset manipulation, column mapping, and CSV ingestion |
+| `numpy` | `>=1.24.0` | Vector operations and numerical computations |
+| `scipy` | `>=1.10.0` | Sparse matrix storage (`scipy.sparse.csr_matrix`, `hstack`) |
+| `joblib` | `>=1.3.0` | Serialization and loading of model and vectorizer artifacts |
+| `scikit-learn` | `>=1.3.0` | TF-IDF vectorization, Logistic Regression, LinearSVC, metrics |
+| `nltk` | `>=3.8.0` | English stopword lists and word tokenization |
+| `matplotlib` | `>=3.7.0` | Static visualization and confusion matrix plotting |
+| `seaborn` | `>=0.12.0` | Statistical heatmaps |
+| `streamlit` | `>=1.30.0` | Interactive web dashboard framework |
+| `plotly` | `>=5.18.0` | Interactive dashboard charts (heatmaps, comparisons, distributions) |
+| `pytest` | `>=7.4.0` | Automated unit, integration, and UI testing |
+| `requests` | `>=2.28.0` | HTTP client for official CFPB Search API v1 |
+| `jupyter` | `>=1.0.0` | Interactive notebook exploration (`notebooks/`) |
+
+---
+
+## Dataset Setup
+
+The project supports two operational modes: **offline CSV analysis** and **live CFPB API querying**.
+
+### Mode A — Offline CSV Mode (Local Dataset)
+
+To run offline analysis, model training scripts, or full dataset exploration:
+
+1. Download the CFPB dataset from the official portal:
+   - Official portal: [https://www.consumerfinance.gov/data-research/consumer-complaints/](https://www.consumerfinance.gov/data-research/consumer-complaints/)
+   - Direct download archive: [https://files.consumerfinance.gov/ccdb/complaints.csv.zip](https://files.consumerfinance.gov/ccdb/complaints.csv.zip)
+2. Extract the archive and place the CSV file at:
+   ```text
+   data/complaints.csv
+   ```
+3. Alternatively, place a smaller sampled file at `data/complaints_sample.csv` for lightweight development.
+
+**Automatic Column Resolution**:
+The project loader (`src/data_loader.py`) automatically maps raw column names to standardized fields:
+- **Complaint Text**: Resolves `Consumer Complaint`, `Consumer complaint narrative`, `complaint_what_happened`, or `text` into canonical `text`.
+- **Product Category**: Resolves `Product` or `category` into canonical `category`.
+- **Complaint ID**: Resolves `Complaint ID` or `complaint_id` into canonical `complaint_id`.
+
+**Git Exclusion**:
+Raw dataset files (`data/*.csv`) are strictly excluded from Git version control by `.gitignore`. Do not commit raw CSV data files to Git.
+
+### Mode B — Live CFPB API Mode (Zero Local CSV Required)
+
+If `data/complaints.csv` is not present on your system, the project continues to function:
+- The Streamlit web dashboard (`app/app.py`) provides preloaded authentic demonstration complaints for instant live inference, classification, and similarity search.
+- The built-in **CFPB Live API & Data Explorer** queries live complaint records directly over the network via `src.cfpb_api.CFPBClient`.
+- Programmatic scripts can fetch real-time complaints via:
+  ```python
+  from src.data_loader import get_complaints_data
+  df = get_complaints_data(source="api", max_records=50)
+  ```
+
+---
+
+## Model Artifact Setup
+
+The project includes verified, serialized production model artifacts stored in the `models/` directory:
+
+```text
+models/
+|-- complaint_classifier.joblib   # Trained class-balanced Multinomial Logistic Regression (~15.7 MB)
+|-- tfidf_vectorizer.joblib       # Fitted Word TF-IDF vectorizer (14,493 features, ~0.3 MB)
+`-- char_vectorizer.joblib        # Fitted Character TF-IDF vectorizer (100,000 features, ~3.3 MB)
+```
+
+### Production Artifact Details
+
+- **`complaint_classifier.joblib`**: A Multinomial Logistic Regression model trained on 20,000 authentic complaints across 18 product categories with `C=2.0` and `class_weight='balanced'`.
+- **`tfidf_vectorizer.joblib`**: Word unigram vectorizer with `ngram_range=(1, 1)`, `min_df=2`, `max_df=0.95`, and `sublinear_tf=True`, capturing 14,493 vocabulary terms.
+- **`char_vectorizer.joblib`**: Cross-boundary character subword vectorizer with `analyzer='char'`, `ngram_range=(3, 5)`, `min_df=5`, `max_df=0.95`, and `max_features=100,000`, capturing 100,000 character n-grams.
+- **Combined Dimension**: Exactly **114,493 sparse features**.
+
+### Version Control & Acquisition
+
+- **Included with the Repository**: Unlike raw CSV files, the three production model artifacts are version-controlled and tracked directly in Git (whitelisted in `.gitignore` via `!models/complaint_classifier.joblib`, `!models/tfidf_vectorizer.joblib`, and `!models/char_vectorizer.joblib`).
+- **No Retraining Required**: When you clone or download the repository, the production models are already included and immediately ready for use by Streamlit and tests.
+- **Integrity Validation**: When the Streamlit application starts, `src.classification.validate_model_artifacts()` automatically verifies that all three files exist, can be deserialized cleanly, and match the expected 114,493 feature dimensions.
+- **Optional Local Retraining**: If you modify the training pipeline or wish to regenerate artifacts from scratch, run:
+  ```bash
+  python scripts/run_model_improvement.py final
+  ```
+
+---
+
+## Run Tests
+
+The repository contains an automated test suite executed with Pytest.
+
+### Running the Full Test Suite
+
+Activate your virtual environment and run:
+
+```bash
+python -m pytest
+```
+
+To run quietly with summary-only output:
+
+```bash
+python -m pytest -q
+```
+
+To run with detailed per-test reporting:
+
 ```bash
 python -m pytest -v
 ```
 
-### Running the Web Application
-Launch the presentation-ready Streamlit web dashboard:
+### Test Suite Coverage
+
+The test suite thoroughly validates every layer of the repository across test modules:
+- `tests/test_cfpb_api.py`: Official CFPB API client initialization, query building, pagination, error handling, and schema normalization.
+- `tests/test_classification.py`: Classifier instantiation, training, prediction, posterior probabilities, and decision thresholding.
+- `tests/test_data_loader.py`: CSV dataset loading, column mapping adaptation, schema validation, and missing-value handling.
+- `tests/test_deployment_artifacts.py`: Production artifact existence, deserialization, feature compatibility (114,493 dimensions), and end-to-end smoke predictions.
+- `tests/test_error_analysis.py`: Error analysis utilities, confusion pair extraction, and probability calibration.
+- `tests/test_evaluation.py`: Metric calculation functions, classification report structures, and confusion matrix builders.
+- `tests/test_model_improvements.py` & `tests/test_model_selection.py`: Subword vectorizer fusion, staged search protocols, and ranking hierarchies.
+- `tests/test_post_audit_improvements.py`: Minimal preprocessing rules and punctuation boundary retention.
+- `tests/test_preprocessing.py`: Text cleaning, normalization, tokenization, and stopword removal.
+- `tests/test_similarity.py`: Cosine similarity computation, Top-K ranking, and edge case handling (empty strings, identical inputs).
+- `tests/test_taxonomy.py`: Conservative (11-class) and broad (10-class) taxonomy mappings and error-collapse accounting.
+- `tests/test_vectorization.py`: Word and character TF-IDF vectorizer configuration, fitting, and sparse horizontal stacking.
+- `tests/test_streamlit_app.py`, `tests/test_ui_charts.py`, `tests/test_ui_components.py`, `tests/test_ui_regression_and_html.py`, `tests/test_rendered_ui_verification.py`: Streamlit entry points, Plotly figure builders, layout structure, and UI regression guards.
+
+---
+
+## Run the Streamlit Application
+
+The Streamlit web application provides an academic, interactive dashboard for testing the NLP pipeline.
+
+### Launching the Application
+
+Make sure your virtual environment is active, then run:
+
 ```bash
 streamlit run app/app.py
 ```
 
-The interactive application features an academic NLP interface:
-- **LIVE Complaint Analysis (Opening Hero Module)**: Type or paste any unseen customer complaint narrative or select from authentic demonstration examples (including domain-standard and intentionally ambiguous viva boundary cases). Immediately inspects:
-  - **Predicted Product Category & Confidence Score**: Displayed with top-5 class confidence distributions.
-  - **Pipeline Trace**: Step-by-step transparency showing raw vs. cleaned text, Word+Char TF-IDF representation (114,493 sparse CSR dimensions), and active non-zero feature counts.
-  - **TF-IDF Representation Layout**: Row 1 compact metric cards (`Total Feature Dimension` and `Active Non-Zero Features`) and Row 2 full-width horizontal card (`Feature Representation: Combined Word + Character TF-IDF`) ensuring zero label truncation, with sparse CSR efficiency notes.
-  - **Highest-Weighted Active Features**: Exact n-grams and learned TF-IDF weights extracted from the input narrative.
-  - **Top Similar Historical CFPB Complaints**: Sparse cosine retrieval against indexed historical complaints with expandable narratives.
-  - **What This Demonstrates**: Concise explanation of the 6 classical NLP pipeline stages (with zero reliance on LLMs or external generative APIs).
-  - **Model & Dataset Insights Dashboard**: Embedded interactive Plotly charts (hover tooltips, zoom/pan, dark-slate theme, zero static PNGs) comparing controlled baseline vs. improved models (Accuracy, Macro F1, Weighted F1), cross-taxonomy benchmarks, dataset class distributions, 18-category F1 metrics, top confusion pairs, and 18×18 confusion matrix heatmaps.
-- **Sidebar Navigation**: Clean rounded rectangular buttons replacing default radio controls, with an enclosed System Status card featuring inline SVG check/cross/warning indicators.
-- **CFPB Live API & Data Explorer**: Live Elasticsearch querying of the official CFPB Search API v1 and interactive exploration of the local 25,000-record dataset.
+Or invoke Streamlit via Python explicitly:
+
+- **Windows**:
+  ```powershell
+  python -m streamlit run app/app.py
+  ```
+- **Linux / macOS**:
+  ```bash
+  python3 -m streamlit run app/app.py
+  ```
+
+### Accessing the Web Interface
+
+Streamlit will launch a local web server and display the application address in your terminal:
+
+```text
+Local URL: http://localhost:8501
+Network URL: http://<your-ip>:8501
+```
+
+Open `http://localhost:8501` in your web browser.
+
+### Running on a Custom Port
+
+If port 8501 is already in use by another service:
+
+```bash
+streamlit run app/app.py --server.port 8502
+```
+
+### Stopping the Application
+
+To stop the Streamlit server, switch to your terminal window and press:
+
+```text
+Ctrl + C
+```
+
+### Application Features
+
+The interactive application includes:
+- **LIVE Complaint Analysis (Opening Module)**: Type or paste any unseen customer complaint narrative, or click one of the authentic demonstration examples. Immediately inspects:
+  - Predicted product category and confidence score with top-5 class distribution bars.
+  - Step-by-step pipeline trace (raw text, cleaned text, 114,493-dimensional sparse CSR representation, active feature counts).
+  - Highest-weighted active word and character n-grams extracted from the input narrative.
+  - Semantically similar historical complaints retrieved via sparse cosine similarity.
+- **Model & Dataset Insights Dashboard**: Interactive Plotly visualizations comparing baseline vs. improved models, dataset distributions, per-category F1 metrics, top confusion pairs, and 18-class confusion matrix heatmaps.
+- **CFPB Live API & Data Explorer**: Live Elasticsearch querying of the official CFPB Search API v1 and interactive exploration of the local dataset.
 - **Model Evaluation & Diagnostics**: Performance metrics, confusion matrices, and controlled benchmark comparisons.
 - **Error Analysis**: Confusion pairs and confidence distribution breakdown on the 5,000-record holdout test set.
 - **Taxonomy Analysis**: Conservative (11 categories) and Broad (10 categories) taxonomy formulation audits and retraining decompositions.
 - **Cosine Similarity Retrieval**: Independent similarity query engine against indexed historical complaints.
-- **Complaint Categorisation**: Batch and interactive supervised categorization.
-- **Text Preprocessing & TF-IDF**: Interactive stage-by-stage tokenization and n-gram inspector.
-- **System Architecture**: Complete pipeline schematic and milestone tracking.
+- **Text Preprocessing & TF-IDF Inspector**: Stage-by-stage tokenization, n-gram extraction, and vocabulary weights inspection.
 
-### Running Systematic Model Experiments
-Run the 7-stage systematic model improvement pipeline across 98 validation configurations:
+---
+
+## Run the Project from the Command Line
+
+In addition to the Streamlit web interface, the project includes standalone command-line scripts in `scripts/`:
+
+### 1. Systematic Model Improvement Search
+
+To run the staged model improvement exploration across validation configurations (training pool internal 16k train / 4k validation split; does not touch the test set):
+
 ```bash
-python scripts/run_model_improvement.py search   # Evaluate candidates on 16k train / 4k val split only
-python scripts/run_model_improvement.py final    # Retrain selected model on 20k pool, evaluate once on 5k test
-```
-Or run the historical 30-run grid search:
-```bash
-python scripts/run_experiments.py
+python scripts/run_model_improvement.py search
 ```
 
-### Running Error Analysis
-Generate the comprehensive confusion matrix and probability error analysis on the 5,000-record test set:
+### 2. Retrain and Evaluate Winning Model
+
+To retrain the selected winning configuration on the full 20,000-record training pool and evaluate once on the 5,000-record holdout test set:
+
+```bash
+python scripts/run_model_improvement.py final
+```
+
+### 3. Generate Diagnostic Error Analysis
+
+To generate diagnostic error analysis metrics, confusion pairs, and calibration data on the 5,000-record test set:
+
 ```bash
 python scripts/generate_error_analysis.py
 ```
 
-### Running Taxonomy-Aware Experiments
-Execute the taxonomy audit and benchmark the normalized taxonomy formulations:
+### 4. Execute Taxonomy Audit and Experiments
+
+To inspect category distributions, merge candidates, and evaluate normalized 11-category and 10-category formulations:
+
 ```bash
 python scripts/analyze_taxonomy.py
 python scripts/run_taxonomy_experiment.py
 ```
 
----
+### 5. Historical 30-Run Grid Search
 
-## Model & Systematic Architecture Improvements
+To run the historical validation grid search across baseline configurations:
 
-The supervised classification engine operates on a classical machine learning pipeline enhanced with subword granularity and class-imbalance mitigation:
-
-### Architectural Innovations:
-1. **Word + Character Subword Fusion**:
-   - Fuses word unigrams (`ngram_range=(1, 1)`) with character n-grams (`analyzer="char"`, `ngram_range=(3, 5)`).
-   - Subword character n-grams capture morphology, financial roots, prefixes/suffixes (e.g. *foreclos-*, *delinqu-*, *overcharg-*), acronyms (e.g. *APR*, *FCRA*, *CFPB*), and spelling variations.
-   - Combined representation stacked into a single sparse matrix via `scipy.sparse.hstack(..., format="csr")` spanning **114,493 sparse features** (pruned from 237,148 by eliminating noisy word bigrams) with zero dense memory allocation.
-2. **Class Imbalance Mitigation**:
-   - Severe category imbalance (ranging from 5,830 *Debt collection* complaints to rare minority classes) was resolved using `class_weight="balanced"`.
-   - Adjusts loss penalization inversely proportional to class frequencies, directly resolving minority-class neglect.
-3. **Model Family Exploration**:
-   - Evaluated **LinearSVC** (with hinge loss) and **Multinomial Logistic Regression** (with cross-entropy loss) across regularization parameters ($C \in [0.25, 0.5, 1.0, 2.0]$).
-   - Logistic Regression with balanced weighting and combined word+char features emerged as the optimal configuration on the internal validation subset.
-4. **Strict Leakage Prevention**:
-   - Full 25,000 dataset partitioned into 20,000 Training Pool and 5,000 Untouched Test Set.
-   - Training pool internally split into 16,000 train subset and 4,000 validation subset for model selection.
-   - Untouched test set evaluated strictly once after final retraining on the 20,000-sample pool.
+```bash
+python scripts/run_experiments.py
+```
 
 ---
 
-## Model Performance
+## CFPB API
 
-### Original 18-Class Task
-Current primary baseline on untouched holdout test set ($N=5,000$):
-- **Holdout Test Accuracy**: **69.82%** (3,491 / 5,000)
-- **Holdout Test Macro F1**: **50.88%**
-- **Holdout Test Weighted F1**: **69.78%**
-- **Internal Validation ($N=4,000$)**: Accuracy **69.95%**, Macro F1 **51.84%**
+The application provides integration with the official **Consumer Financial Protection Bureau (CFPB) Complaint Search API v1**.
 
-### Improved 18-Class Task
-Representational optimization via minimal preprocessing (retaining punctuation, digits, stopwords, and negation context while preserving character n-gram boundaries):
-- **Internal Validation ($N=4,000$)**:
-  - Accuracy: **71.33%** (+1.38 pp vs. baseline 69.95%)
-  - Macro F1: **53.50%** (+1.66 pp vs. baseline 51.84%)
-  - Weighted F1: **71.25%** (+1.42 pp vs. baseline 69.83%)
-- **Holdout Test Set ($N=5,000$)**:
-  - Accuracy: **71.16%** (+1.34 pp vs. baseline 69.82%)
-  - Macro F1: **52.43%** (+1.55 pp vs. baseline 50.88%)
-  - Weighted F1: **71.07%** (+1.29 pp vs. baseline 69.78%)
-
-*Key Representational Finding*: Preserving punctuation and syntactic negation boundaries (`didn't`, `not`, `never`) gives character n-grams (`analyzer='char'`, ranges 3–5) crucial context that standard stopword and symbol stripping aggressively discard, lifting text-only performance without increasing model capacity.
-
-### Normalized 11-Class Task
-*The original 18-class task achieves approximately 70% accuracy. When historical administrative label variants are normalized into 11 broader product groups, the same classical NLP pipeline achieves approximately 82% accuracy.*
-
-- **Classification Formulation**: Conservative Taxonomy v1 (11 Categories, grounded in official CFPB documentation; `Consumer Loan` retained independently).
-- **Standard Preprocessing**:
-  - Validation Accuracy: **82.20%** | Validation Macro F1: **63.23%**
-  - Holdout Test Accuracy: **81.50%** | Holdout Test Macro F1: **63.43%**
-- **Minimal Preprocessing**:
-  - Validation Accuracy: **82.85%** | Validation Macro F1: **64.53%**
-  - Holdout Test Accuracy: **81.90%** | Holdout Test Macro F1: **63.29%**
-
-> **Important Scientific Distinction**: The 11-class normalized taxonomy represents a **different classification task formulation**, not an algorithmic improvement of the 18-class model. Over 40% of all baseline errors occur between identical financial concepts separated purely by CFPB administrative form redesign dates (e.g. *Credit reporting* vs. *Credit reporting, credit repair services...*). Removing administrative synonyms aligns the task with genuine product boundaries.
+- **Official Base Endpoint**:
+  `https://www.consumerfinance.gov/data-research/consumer-complaints/search/api/v1/`
+- **Authentication**: **No API key is required**. The CFPB search API is a publicly accessible federal service.
+- **Client Implementation**: `src.cfpb_api.CFPBClient` and helper function `fetch_cfpb_data()`.
+- **Fields Retrieved**: Complaint narrative (`complaint_what_happened`), financial product (`product`), sub-product, issue, company, state, date received, and unique complaint identifier (`complaint_id`).
+- **Normalized Schema**: The client normalizes raw API Elasticsearch responses into standard fields (`text`, `category`, `complaint_id`).
+- **Unified Dispatcher**: `src.data_loader.get_complaints_data(source="api", max_records=50)` allows fetching live complaints without requiring a local CSV file.
+- **Optional vs. Required**: API access is completely optional. When working offline with local files (`data/complaints.csv` and `models/`), network connectivity is not required. When local CSV data is absent, the application uses live API access as an optional data source.
 
 ---
 
-## Evaluation & Benchmark Results
+## Example Usage
 
-### Clarification on Experimental Comparisons
+### 1. Preprocessing and TF-IDF Representation
 
-To maintain scientific integrity, this project distinguishes between two different comparisons:
+```python
+from src.preprocessing import preprocess_text
+from src.vectorization import transform_word_char, get_top_active_features
+from src.classification import validate_model_artifacts
 
-1. **Historical Initial Baseline ($N=600$ test split, 17 categories)**:
-   - Early exploratory prototype: Accuracy **61.83%**, Macro F1 **24.78%**, Weighted F1 **54.96%**.
-   - *Note*: This historical baseline was evaluated on an earlier 3,000-record dataset with a 600-sample test set. It is documented for historical provenance, but is **not** an apples-to-apples controlled scientific comparison.
-2. **Authoritative Controlled Model Comparison (Exact Same 5,000-Record Test Set, 18 Categories)**:
-   - Evaluated on the exact same 20,000-record training pool and 5,000-record held-out test set:
+# Load verified production artifacts
+artifacts = validate_model_artifacts()
+w_vec = artifacts["word_vectorizer"]
+c_vec = artifacts["char_vectorizer"]
 
-| Evaluation Metric | Controlled Baseline (Word TF-IDF, No Balancing) | Previous Model (Combined (1,2)+(3,5), Balanced, C=1.0) | Improved Final Model (Word(1,1)+Char(3,5), Balanced, C=2.0) | Improvement vs. Previous | Improvement vs. Baseline |
+# Clean and vectorize input narrative
+narrative = "The bank charged an unexpected overdraft fee on my checking account without notice."
+cleaned_text = preprocess_text(narrative)
+X_sparse = transform_word_char(w_vec, c_vec, [cleaned_text])
+
+print(f"Sparse matrix shape: {X_sparse.shape}")  # (1, 114493)
+print(f"Non-zero features: {X_sparse.nnz}")
+
+# Inspect highest-weighted active features
+top_features = get_top_active_features(w_vec, c_vec, X_sparse, top_n=5)
+for feat, weight in top_features:
+    print(f"  {feat}: {weight:.4f}")
+```
+
+### 2. Complaint Classification & Probability Estimation
+
+```python
+from src.classification import predict_complaint_category, predict_category_proba
+
+clf = artifacts["classifier"]
+
+# Predict category and confidence
+pred_cat, confidence = predict_complaint_category(
+    model=clf,
+    vectorizer=(w_vec, c_vec),
+    narrative=narrative,
+    preprocess=True,
+)
+print(f"Predicted Category: {pred_cat}")
+print(f"Confidence: {confidence:.2%}")
+
+# Compute probability distribution across all 18 classes
+probabilities = predict_category_proba(clf, X_sparse)[0]
+top_indices = probabilities.argsort()[-3:][::-1]
+for idx in top_indices:
+    print(f"  {clf.classes_[idx]}: {probabilities[idx]:.2%}")
+```
+
+### 3. Pairwise Cosine Similarity Search
+
+```python
+import pandas as pd
+from src.similarity import find_similar_complaints
+
+# Reference dataset
+corpus_df = pd.DataFrame({
+    "complaint_id": ["C1", "C2", "C3"],
+    "text": [
+        "Unauthorized transactions appeared on my credit card statement.",
+        "Overdraft fee charged to checking account without notification.",
+        "Mortgage servicer did not apply monthly escrow payment.",
+    ],
+    "category": [
+        "Credit card",
+        "Checking or savings account",
+        "Mortgage",
+    ]
+})
+
+similar_results = find_similar_complaints(
+    query_text="Bank charged me an unfair overdraft penalty on my checking account.",
+    complaints_df=corpus_df,
+    vectorizer=(w_vec, c_vec),
+    top_k=2,
+)
+
+print(similar_results[["complaint_id", "category", "similarity_score"]])
+```
+
+### 4. Querying the Official CFPB Live API
+
+```python
+from src.cfpb_api import CFPBClient
+
+client = CFPBClient()
+df_live = client.fetch_complaints(size=10, search_term="escrow")
+print(f"Retrieved {len(df_live)} live complaints from CFPB API")
+print(df_live[["complaint_id", "category", "text"]].head())
+```
+
+---
+
+## Cross-Platform Command Table
+
+The following comparison table shows equivalent commands across Windows PowerShell, Windows Command Prompt, Linux, and macOS:
+
+| Task | Windows PowerShell | Windows Command Prompt | Linux (bash/zsh) | macOS (zsh/bash) |
+|---|---|---|---|---|
+| **Check Python** | `python --version` | `python --version` | `python3 --version` | `python3 --version` |
+| **Check Git** | `git --version` | `git --version` | `git --version` | `git --version` |
+| **Clone Repo** | `git clone https://github.com/Java-Mx/Customer-Complaint-NLP.git` | `git clone https://github.com/Java-Mx/Customer-Complaint-NLP.git` | `git clone https://github.com/Java-Mx/Customer-Complaint-NLP.git` | `git clone https://github.com/Java-Mx/Customer-Complaint-NLP.git` |
+| **Navigate** | `cd Customer-Complaint-NLP` | `cd Customer-Complaint-NLP` | `cd Customer-Complaint-NLP` | `cd Customer-Complaint-NLP` |
+| **Create venv** | `python -m venv .venv` | `python -m venv .venv` | `python3 -m venv .venv` | `python3 -m venv .venv` |
+| **Activate venv** | `.\.venv\Scripts\Activate.ps1` | `.venv\Scripts\activate.bat` | `source .venv/bin/activate` | `source .venv/bin/activate` |
+| **Deactivate venv** | `deactivate` | `deactivate` | `deactivate` | `deactivate` |
+| **Upgrade pip** | `python -m pip install --upgrade pip` | `python -m pip install --upgrade pip` | `python -m pip install --upgrade pip` | `python -m pip install --upgrade pip` |
+| **Install reqs** | `python -m pip install -r requirements.txt` | `python -m pip install -r requirements.txt` | `python -m pip install -r requirements.txt` | `python -m pip install -r requirements.txt` |
+| **Run tests** | `python -m pytest` | `python -m pytest` | `python -m pytest` | `python -m pytest` |
+| **Run Streamlit** | `streamlit run app/app.py` | `streamlit run app/app.py` | `streamlit run app/app.py` | `streamlit run app/app.py` |
+| **Alt Streamlit** | `python -m streamlit run app/app.py` | `python -m streamlit run app/app.py` | `python3 -m streamlit run app/app.py` | `python3 -m streamlit run app/app.py` |
+
+---
+
+## Troubleshooting
+
+The table below lists common setup and runtime issues along with verified solutions:
+
+| Problem | Possible Cause | Solution |
+|---|---|---|
+| `'python'` or `'python3'` is not recognized as an internal or external command | Python is not installed or not added to your system's `PATH` environment variable | Install Python 3.9+ from [python.org](https://www.python.org/) or your distribution package manager. On Windows, ensure **"Add Python to PATH"** is checked during installation. |
+| PowerShell returns `cannot be loaded because running scripts is disabled on this system` | Windows PowerShell execution policy restricts running unsigned activation scripts | Run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` in your PowerShell window, then retry `.\.venv\Scripts\Activate.ps1`. Alternatively, use Command Prompt with `.venv\Scripts\activate.bat`. |
+| Linux: `The virtual environment was not created successfully because ensurepip is not available` | Debian/Ubuntu base installations separate the virtual environment package | Install the required venv package: `sudo apt update && sudo apt install -y python3-venv python3-pip`. Then rerun `python3 -m venv .venv`. |
+| `pip install -r requirements.txt` fails with compiler or permission errors | Pip is outdated or global system environment is write-protected | Ensure the virtual environment is active (terminal prompt should show `(.venv)`). Upgrade pip first: `python -m pip install --upgrade pip`, then rerun the installation command. |
+| `streamlit: command not found` | Streamlit was installed inside a virtual environment that is not currently active, or PATH does not include script executables | Activate your virtual environment first, or run Streamlit via Python module syntax: `python -m streamlit run app/app.py` (Windows) or `python3 -m streamlit run app/app.py` (Linux/macOS). |
+| `Port 8501 is already in use` | Another instance of Streamlit or a local application is occupying port 8501 | Launch Streamlit on an alternate port: `streamlit run app/app.py --server.port 8502`. |
+| `Missing production model artifact: models/complaint_classifier.joblib` | Model files were accidentally deleted or omitted from an incomplete clone | Verify that `models/complaint_classifier.joblib`, `models/tfidf_vectorizer.joblib`, and `models/char_vectorizer.joblib` are present. If missing, pull them from Git (`git checkout models/`) or retrain with `python scripts/run_model_improvement.py final`. |
+| `Dataset file not found at: data/complaints.csv` | Offline CSV file is missing when invoking CSV-dependent routines | Download the CFPB complaint dataset and place it at `data/complaints.csv` (see [Dataset Setup](#dataset-setup)). To run without the local CSV, use the live API mode or the interactive demo narratives in Streamlit. |
+| `ModuleNotFoundError: No module named 'src'` | Running scripts or tests from an inner subdirectory instead of the project root | Ensure your current working directory is the repository root (`Customer-Complaint-NLP`). Run commands as `python -m pytest` or `streamlit run app/app.py` from the root directory. |
+| Pytest tests fail due to environment or dependency version mismatch | Packages installed outside virtual environment or outdated dependencies | Create a fresh virtual environment: delete `.venv`, run `python -m venv .venv`, activate it, and reinstall dependencies via `python -m pip install -r requirements.txt`. |
+| Network timeout when fetching live complaints from CFPB API | CFPB federal gateway experiencing temporary latency or local firewall restriction | Increase the network timeout: `CFPBClient(timeout=45.0)`. Live API access is optional; all core NLP classification and similarity functions operate fully offline using local artifacts. |
+
+---
+
+## Reproducibility
+
+To ensure strict scientific reproducibility, the experimental configuration is fully specified:
+
+### Dataset & Partitioning Protocol
+- **Source**: Authentic CFPB Consumer Complaint Database (25,000 complaints, 18 classes).
+- **Split Protocol**: Stratified sampling by product category with random seed `random_state=42`.
+  - Full dataset ($N=25,000$) divided into:
+    - **Training Pool**: 20,000 records (80%).
+    - **Holdout Test Set**: 5,000 records (20%), kept untouched throughout model selection.
+  - The training pool is internally split into:
+    - **Train Subset**: 16,000 records (80% of pool).
+    - **Validation Subset**: 4,000 records (20% of pool) for hyperparameter and feature selection.
+- **Leakage Prevention**: Vectorizer vocabularies and class weighting parameters were fitted exclusively on training data. The 5,000-record holdout test set was evaluated strictly once using automated execution guards.
+
+### TF-IDF Feature Representation
+- **Word TF-IDF**:
+  - N-gram range: `(1, 1)` (unigrams only)
+  - Document frequency cutoffs: `min_df=2`, `max_df=0.95`
+  - Sublinear term frequency scaling: `sublinear_tf=True`
+  - Normalization: `norm='l2'`
+  - Lowercasing: `lowercase=False` (preprocessed before vectorization)
+  - Extracted vocabulary: **14,493 features**
+- **Character TF-IDF**:
+  - Analyzer: `analyzer='char'` (cross-boundary character n-grams)
+  - N-gram range: `(3, 5)`
+  - Document frequency cutoffs: `min_df=5`, `max_df=0.95`
+  - Vocabulary capacity: `max_features=100,000`
+  - Sublinear term frequency scaling: `sublinear_tf=True`
+  - Normalization: `norm='l2'`
+  - Lowercasing: `lowercase=False`
+  - Extracted vocabulary: **100,000 features**
+- **Combined Representation**:
+  - Stacking method: `scipy.sparse.hstack(..., format="csr")`
+  - Total combined dimension: **114,493 sparse features**
+
+### Classifier Hyperparameters
+- **Algorithm**: Multinomial Logistic Regression (`sklearn.linear_model.LogisticRegression`)
+- **Solver**: `lbfgs`
+- **Regularization Parameter**: $C = 2.0$ (L2 regularization)
+- **Class Weighting**: `class_weight='balanced'`
+- **Maximum Iterations**: `max_iter=1000`
+- **Random State**: `random_state=42`
+
+---
+
+## Technical Details
+
+### Controlled Model Comparison
+
+The table below presents the apples-to-apples controlled evaluation on the exact same 20,000-record training pool and untouched 5,000-record holdout test set across 18 product categories:
+
+| Evaluation Metric | Controlled Baseline (Word TF-IDF, No Balancing) | Previous Model (Word(1,2)+Char(3,5), Balanced, C=1.0) | Improved Final Model (Word(1,1)+Char(3,5), Balanced, C=2.0) | Improvement vs. Previous | Improvement vs. Baseline |
 |---|---:|---:|---:|---:|---:|
 | **Overall Accuracy** | 69.14% | 69.56% | **69.82%** | **+0.26 pp** | +0.68 pp |
 | **Macro F1-Score** | 34.15% | 50.56% | **50.88%** | **+0.33 pp** | **+16.73 pp (+48.99%)** |
@@ -334,102 +997,27 @@ To maintain scientific integrity, this project distinguishes between two differe
 | **Weighted Precision** | 66.53% | 70.03% | **70.08%** | **+0.05 pp** | +3.55 pp |
 | **Weighted Recall** | 69.14% | 69.56% | **69.82%** | **+0.26 pp** | +0.68 pp |
 | **Test Partition Size** | 5,000 samples | 5,000 samples | 5,000 samples | Identical holdout | Identical holdout |
-| **Vocabulary Features** | 199,630 features | 237,148 features | **114,493 features** | **-51.7% feature reduction** | Compact vocabulary |
+| **Vocabulary Features** | 199,630 features | 237,148 features | **114,493 features** | **-51.7% reduction** | Compact vocabulary |
+| **Disk Size** | ~28 MB | 34.2 MB | **16.5 MB** | **-51.8% footprint** | Lightweight asset |
 
-*Key finding*: The systematic model improvement framework achieved improvements across **Accuracy** (69.82%), **Macro F1** (50.88%), **Weighted F1** (69.78%), and **Macro Precision** (50.41%), while simultaneously cutting vocabulary dimensions by more than half (from 237,148 to 114,493 features).
+### Candidate Model Search Summary (Validation Set, N=4,000)
 
----
+Candidate models were ranked during the 98-configuration search using the priority hierarchy: **Val Macro F1 -> Val Macro Recall -> Val Accuracy -> Val Weighted F1**:
 
-## Model Improvement Experiments
+| Stage | Candidate Configuration | Dimensions | Val Macro F1 | Val Macro Rec | Val Accuracy | Val Weighted F1 |
+|---|---|---:|---:|---:|---:|---:|
+| **S3 LR (Selected)** | **LogisticRegression ($C=2.0$, balanced) + Word(1,1) + Char(3,5, `char`)** | **109,228** | **51.84%** | **51.78%** | **69.95%** | **69.83%** |
+| S2 word+char | LogisticRegression ($C=1.0$, balanced) + Word(1,1) + Char(3,5, `char`) | 109,228 | 51.49% | 51.96% | 69.17% | 69.20% |
+| S0 reference | LogisticRegression ($C=1.0$, balanced) + Word(1,2) + Char(3,5, `char_wb`) | 198,478 | 51.27% | 51.65% | 69.20% | 69.13% |
+| S1 word | LogisticRegression ($C=1.0$, balanced) + Word(1,1) | 13,209 | 51.28% | 53.05% | 68.27% | 68.52% |
+| S4 SVC | LinearSVC ($C=0.5$, balanced) + Word(1,2) + Char(3,5, `char_wb`) | 198,478 | 49.15% | 48.36% | 70.77% | 69.99% |
+| S4 SVC | LinearSVC ($C=0.5$, balanced) + Word(1,1) + Char(3,5, `char`) | 109,228 | 48.98% | 48.65% | 70.40% | 69.85% |
+| S4 NB | MultinomialNB ($\alpha=0.01$) + Word(1,1) + Char(3,5, `char`) | 109,228 | 46.80% | 44.88% | 69.27% | 68.15% |
+| S4 NB | ComplementNB ($\alpha=0.3$) + Word(1,1) + Char(3,5, `char`) | 109,228 | 39.06% | 38.51% | 67.05% | 62.63% |
 
-A systematic, leakage-free empirical investigation was conducted across 98 candidate configurations to improve classification performance while strictly adhering to classical/statistical NLP methods.
+### Taxonomy-Aware Classification & Error Decomposition
 
-### 1. Previous Model (Reference Baseline)
-- **Dataset**: 25,000 authentic CFPB complaints across 18 product categories.
-- **Features**: Word TF-IDF (1,2) + Character TF-IDF (3,5 within word boundaries `char_wb`), yielding 237,148 dimensions.
-- **Classifier**: Logistic Regression (`solver='lbfgs'`, $C=1.0$, `class_weight='balanced'`, `max_iter=1000`).
-- **Holdout Test Set Performance**: Accuracy 69.56%, Macro F1 50.56%, Weighted F1 69.55%, Macro Precision 49.67%, Macro Recall 51.97%.
-
-### 2. Candidate Models & Search Exploration Space
-All candidate exploration was performed exclusively using a stratified 80/20 internal partition of the 20,000-record training pool (**16,000 train / 4,000 validation records**). The 5,000-record final test set remained strictly untouched throughout model selection. 98 distinct configurations were evaluated across 7 structured stages:
-
-1. **Stage 0 — Production Reference**: Exact replication of the production configuration with fully converged solver iterations.
-2. **Stage 1 — Word TF-IDF Variations**: Evaluated n-gram ranges `(1,1)`, `(1,2)`, `(1,3)`, document frequency cutoffs (`min_df` $\in \{2, 3, 5\}$, `max_df` $\in \{0.5, 0.8, 0.95\}$), norm formulations (`l1` vs. `l2`), sublinear scaling, and vocabulary caps (50k, 100k).
-3. **Stage 2 — Character TF-IDF & Subword Fusion**: Evaluated character n-gram spans `(2,5)`, `(3,5)`, `(3,6)`, `(4,6)` comparing standard cross-boundary character n-grams (`analyzer='char'`) against word-boundary subwords (`analyzer='char_wb'`). Combined the top-performing character blocks with the best word representations via sparse horizontal stacking.
-4. **Stage 3 — Logistic Regression Hyperparameters**: Evaluated inverse regularization strength $C \in \{0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0\}$ under both `class_weight=None` and `class_weight='balanced'`.
-5. **Stage 4 — Alternative Classical Sparse Classifiers**:
-   - **Linear Support Vector Classifier (LinearSVC)**: Evaluated $C \in \{0.05, 0.1, 0.25, 0.5, 1.0, 2.0\}$ with and without class balancing.
-   - **Naive Bayes**: Evaluated `ComplementNB` and `MultinomialNB` with smoothing parameter $\alpha \in \{0.01, 0.03, 0.1, 0.3, 1.0\}$.
-6. **Stage 5 — Train-Only Custom Class Weighting**: Evaluated power-scaled class balancing $w_c = (n / (k \cdot n_c))^p$ with power exponents $p \in \{0.25, 0.5, 0.75, 1.25\}$, computed strictly from training labels without validation leakage.
-7. **Stage 6 — Generic Classical Feature Augmentation**: Tested appending stateless, text-only stylistic features (log narrative length, CFPB redaction mask count `XXXX`, and mask indicator flag).
-
-### 3. Validation Results Summary
-Candidates were ranked using a pre-registered multi-metric hierarchy: **Validation Macro F1 $\rightarrow$ Validation Macro Recall $\rightarrow$ Validation Accuracy $\rightarrow$ Validation Weighted F1**.
-
-| Stage | Candidate Configuration | Dimensions | Val Accuracy | Val Macro Prec | Val Macro Rec | Val Macro F1 | Val Weighted F1 |
-|---|---|---:|---:|---:|---:|---:|---:|
-| **S3 LR (Winner)** | **LogisticRegression ($C=2.0$, balanced) + Word(1,1) + Char(3,5, `char`)** | **109,228** | **69.95%** | **53.17%** | **51.78%** | **51.84%** | **69.83%** |
-| S2 word+char | LogisticRegression ($C=1.0$, balanced) + Word(1,1) + Char(3,5, `char`) | 109,228 | 69.17% | 51.89% | 51.96% | 51.49% | 69.20% |
-| S0 reference | LogisticRegression ($C=1.0$, balanced) + Word(1,2) + Char(3,5, `char_wb`) | 198,478 | 69.20% | 51.92% | 51.65% | 51.27% | 69.13% |
-| S1 word | LogisticRegression ($C=1.0$, balanced) + Word(1,1) | 13,209 | 68.27% | 50.54% | 53.05% | 51.28% | 68.52% |
-| S5 class-weights | LogisticRegression ($C=2.0$, power=1.25) + Word(1,1) + Char(3,5, `char`) | 109,228 | 68.95% | 51.27% | 51.88% | 51.11% | 69.16% |
-| S4 SVC | LinearSVC ($C=0.5$, balanced) + Word(1,2) + Char(3,5, `char_wb`) | 198,478 | 70.77% | 52.23% | 48.36% | 49.15% | 69.99% |
-| S4 SVC | LinearSVC ($C=0.5$, balanced) + Word(1,1) + Char(3,5, `char`) | 109,228 | 70.40% | 50.37% | 48.65% | 48.98% | 69.85% |
-| S4 NB | MultinomialNB ($\alpha=0.01$) + Word(1,1) + Char(3,5, `char`) | 109,228 | 69.27% | 53.24% | 44.88% | 46.80% | 68.15% |
-| S4 NB | ComplementNB ($\alpha=0.3$) + Word(1,1) + Char(3,5, `char`) | 109,228 | 67.05% | 51.52% | 38.51% | 39.06% | 62.63% |
-
-**Key Validation Insights**:
-- **Why LinearSVC was not selected**: Although LinearSVC achieved higher raw Accuracy (70.77%), its Macro F1 was substantially lower (49.15% vs. 51.84%) due to poor recall on low-support classes. The task specifically prioritizes Macro F1 to prevent minority class neglect.
-- **Why Naive Bayes was not selected**: Multinomial and Complement Naive Bayes struggled with independence violations on dense character n-gram overlaps, achieving Macro F1 scores below 47%.
-- **Character Analyzer Comparison**: Full character n-grams (`analyzer='char'`) consistently outperformed word-boundary character n-grams (`analyzer='char_wb'`), providing better subword discrimination across punctuation and compound financial expressions.
-
-### 4. Selected Configuration
-- **Model**: Multinomial Logistic Regression (`solver='lbfgs'`, $C=2.0$, `class_weight='balanced'`, `max_iter=1000`, `random_state=42`).
-- **Word TF-IDF**: `ngram_range=(1,1)`, `min_df=2`, `max_df=0.95`, `norm='l2'`, `sublinear_tf=True`, `lowercase=False`.
-- **Character TF-IDF**: `analyzer='char'`, `ngram_range=(3,5)`, `min_df=5`, `max_df=0.95`, `max_features=100,000`, `sublinear_tf=True`, `lowercase=False`.
-- **Combination**: `scipy.sparse.hstack` into CSR matrix format (114,493 features total).
-
-### 5. Final Controlled Test Results
-Following selection, the winning configuration was retrained on the full 20,000-record training pool and evaluated **exactly once** on the untouched 5,000-record holdout test set:
-
-- **Accuracy**: **69.82%** (+0.26 pp vs. previous 69.56%; +0.68 pp vs. baseline 69.14%)
-- **Macro F1**: **50.88%** (+0.33 pp vs. previous 50.56%; +16.73 pp vs. baseline 34.15%)
-- **Weighted F1**: **69.78%** (+0.23 pp vs. previous 69.55%; +4.05 pp vs. baseline 65.73%)
-- **Macro Precision**: **50.41%** (+0.74 pp vs. previous 49.67%; +9.04 pp vs. baseline 41.37%)
-- **Macro Recall**: **51.69%** (-0.28 pp vs. previous 51.97%; +17.61 pp vs. baseline 34.08%)
-- **Weighted Precision**: **70.08%** (+0.05 pp vs. previous 70.03%; +3.55 pp vs. baseline 66.53%)
-- **Weighted Recall**: **69.82%** (+0.26 pp vs. previous 69.56%; +0.68 pp vs. baseline 69.14%)
-- **Total Features**: **114,493** (reduced from 237,148; 51.7% smaller feature space)
-- **Model Artifact Size**: **16.5 MB** (down from 34.2 MB; 51.8% smaller memory footprint)
-
-### 6. Per-Category Breakdown & Improvements
-Significant F1 gains were achieved on major and minority categories:
-- *Payday loan, title loan, or personal loan*: F1 elevated by **+3.28 pp** (23.19% $\rightarrow$ 26.47%)
-- *Money transfer, virtual currency, or money service*: F1 elevated by **+2.69 pp** (59.13% $\rightarrow$ 61.82%)
-- *Money transfers*: F1 elevated by **+2.66 pp** (56.72% $\rightarrow$ 59.38%)
-- *Prepaid card*: F1 elevated by **+2.41 pp** (74.51% $\rightarrow$ 76.92%)
-- *Consumer Loan*: F1 elevated by **+2.17 pp** (46.87% $\rightarrow$ 49.04%)
-- *Credit reporting, credit repair services...*: F1 elevated by **+2.02 pp** (60.03% $\rightarrow$ 62.05%)
-- *Mortgage*: F1 elevated by **+0.39 pp** (92.22% $\rightarrow$ 92.61%)
-- *Credit reporting*: F1 elevated by **+0.31 pp** (61.41% $\rightarrow$ 61.73%)
-
-### 7. Reasons for Improvement
-1. **Reduced Collinearity & Feature Noise**: Eliminating word bigrams while relying on character n-grams (`analyzer='char'`) for subword and compound phrase modeling pruned over 122,000 redundant features. This cleaner representation reduced variance and improved linear decision boundaries.
-2. **Cross-Boundary Subword Modeling**: Unconstrained character n-grams (`char`) captured subword stems across whitespace and punctuation boundary artifacts more effectively than `char_wb`, improving recognition of domain-specific financial codes, account identifiers, and abbreviations.
-3. **Optimized Regularization Balance**: Raising $C$ from $1.0$ to $2.0$ allowed the model to penalize minority misclassifications more heavily without overfitting, leveraging the lower-dimensional feature matrix.
-
-### 8. Methodological Safeguards & Limitations
-- **Zero Leakage**: All vectorizers and class weights were fitted exclusively on training records. The 5,000-record test set was evaluated exactly once via programmatic guard assertion.
-- **Irreducible Label Ambiguity**: The remaining error ceiling (~30.18% error rate) is primarily driven by CFPB historical label synonymy (e.g., *Credit reporting* vs. *Credit reporting, credit repair services...*), as detailed in the Taxonomy-Aware Classification section below.
-
-
----
-
-## Taxonomy-Aware Classification
-
-Error analysis on the held-out 5,000-record test set revealed that **608 out of 1,522 errors (39.95%)** occurred between pairs of categories that represent the exact same financial products under differing names due to historical CFPB administrative revisions (April 2017 and 2019). The database preserves submission-time labels without retroactively relabeling records.
-
-To investigate whether classification difficulty stemmed from NLP representation limits or from historical label synonymy, the project evaluates three task formulations:
+Error analysis on the held-out 5,000-record test set revealed that **608 out of 1,522 errors (39.95%)** occurred between category pairs representing identical financial products separated purely by historical administrative form revisions (April 2017 and 2019):
 
 | Task Formulation | Categories | Accuracy | Macro F1 | Weighted F1 | Test Errors |
 |---|---:|---:|---:|---:|---:|
@@ -437,101 +1025,48 @@ To investigate whether classification difficulty stemmed from NLP representation
 | **v1 Conservative** | 11 | 81.50% | 63.43% | 81.61% | 925 |
 | **v2 Broad** | 10 | 82.32% | 66.57% | 82.42% | 884 |
 
-### Methodological Context on Performance Changes
-
-> **Important**: The normalized tasks change the target taxonomy. Part of the apparent performance increase therefore comes from redefining which distinctions count as separate classification errors, rather than an increase in model capability alone.
-
-### Retraining Error Decomposition
-
-To scientifically separate mechanical task collapse from classifier retraining effects:
-
+**Retraining Error Decomposition**:
+To isolate mechanical task collapse from classifier retraining effects:
 $$\text{Total Error Reduction} = \Delta_{\text{mechanical collapse}} + \Delta_{\text{retraining effect}}$$
 
 - **v1 Conservative (11 Categories)**:
   - Original 18-category errors: **1,522**
-  - Mechanical collapse elimination: **608 errors (39.95%)**
-  - Post-hoc collapsed errors (predictions remapped without retraining): **914**
-  - Actual retrained v1 model errors: **925**
-  - Retraining effect: **+11 errors** relative to post-hoc collapsed reference
+  - Errors eliminated by resolving administrative synonyms: **608 errors (39.95%)**
+  - Post-hoc collapsed errors (remapped without retraining): **914**
+  - Retrained v1 model errors: **925**
+  - Retraining effect: **+11 errors** relative to post-hoc mapping
 - **v2 Broad (10 Categories)**:
   - Original 18-category errors: **1,522**
-  - Mechanical collapse elimination: **635 errors (41.72%)**
-  - Post-hoc collapsed errors (predictions remapped without retraining): **887**
-  - Actual retrained v2 model errors: **884**
-  - Retraining effect: **-3 errors** relative to post-hoc collapsed reference
+  - Errors eliminated by resolving administrative synonyms: **635 errors (41.72%)**
+  - Post-hoc collapsed errors (remapped without retraining): **887**
+  - Retrained v2 model errors: **884**
+  - Retraining effect: **-3 errors** relative to post-hoc mapping
 
-This confirms that the jump from 69.56% to ~82% accuracy is essentially attributable to resolving label synonymy in the task definition rather than superior classifier generalization.
-
-### Information-Loss Trade-Off
-
-The normalized tasks trade label granularity for consistency. As documented in [docs/taxonomy-analysis.md](docs/taxonomy-analysis.md):
-- **Credit Reporting**: Collapses pre-2019 narrow credit bureau disputes with broader post-2019 credit repair and tenant screening scope.
-- **Card Products**: Collapses revolving credit cards (TILA-governed) with stored-value prepaid cards (EFTA-governed).
-- **Banking Accounts**: Collapses legacy ancillary banking services into retail checking/savings accounts.
-- **Money Movement**: Collapses international remittances with virtual currency exchanges and non-bank payment apps.
-- **Consumer Loans (Broad v2 only)**: Collapses multi-year installment loans ($5,000–$25,000) with two-week payday advances ($300–$500).
-
-No taxonomy is declared universally superior; deployment choice depends on whether the downstream objective requires high-level operational triage (favoring 11 categories) or exact historical regulatory compliance (favoring 18 categories).
-
----
-
-## Documentation
-
-Comprehensive project documentation is maintained in the repository:
-
-- [docs/project-updates.md](docs/project-updates.md) — Complete chronological engineering log of all 11 milestones.
-- [docs/taxonomy-analysis.md](docs/taxonomy-analysis.md) — Comprehensive 15-section report on taxonomy audits, formulations, and information loss.
-- [docs/error-analysis.md](docs/error-analysis.md) — Statistical error analysis on the 5,000-record test set.
-- [docs/viva-preparation.md](docs/viva-preparation.md) — Academic viva defense preparation and theoretical examination Q&A.
-- [notebooks/01_dataset_exploration.ipynb](notebooks/01_dataset_exploration.ipynb) — Interactive dataset exploration and pipeline verification notebook.
-- [data/README.md](data/README.md) — Dataset download instructions, schema definitions, and policies.
-
----
-
-## Live CFPB API Integration
-
-The application integrates with the official [CFPB Consumer Complaint Database API v1](https://www.consumerfinance.gov/data-research/consumer-complaints/search/api/v1/):
-- **Endpoint**: `https://www.consumerfinance.gov/data-research/consumer-complaints/search/api/v1/`
-- **Client**: `src.cfpb_api.CFPBClient` and convenience function `fetch_cfpb_data()`
-- **Schema Normalization**: Maps raw API Elasticsearch hits into canonical fields (`complaint_id`, `category`, `text`, `company`, `date_received`, `state`, `issue`).
-- **Unified Dispatcher**: `src.data_loader.get_complaints_data(source="csv" | "api")` allows switching seamlessly between offline CSV analysis and live CFPB querying.
-
----
-
-## Deployment & Production Model Artifacts
-
-Production model artifacts are version-controlled and tracked directly in the repository under:
-
-```
-models/
-├── complaint_classifier.joblib   # Trained class-balanced Multinomial Logistic Regression model (~15.7 MB)
-├── tfidf_vectorizer.joblib       # Fitted Word TF-IDF vectorizer (14,493 features, ~0.3 MB)
-└── char_vectorizer.joblib        # Fitted Character TF-IDF vectorizer (100,000 features, ~3.3 MB)
-```
-
-The Streamlit web application (`app/app.py`) dynamically validates and loads these three required runtime assets at startup:
-1. `complaint_classifier.joblib`
-2. `tfidf_vectorizer.joblib`
-3. `char_vectorizer.joblib`
-
-Together, these represent the audited 114,493-feature representation (Word + Character TF-IDF) evaluated on the untouched holdout test split.
-
-> **Data Policy Note**: The raw CFPB dataset (`data/complaints.csv`) remains intentionally excluded from Git tracking via `.gitignore` to preserve lightweight repository standards. When the local CSV is unavailable, the application operates seamlessly in live demonstration and CFPB API querying modes.
+This confirms that the increase in accuracy from ~70% to ~82% is primarily driven by resolving administrative label synonymy in the task definition rather than superior classifier generalization.
 
 ---
 
 ## Limitations
 
-- **Syntactic Context**: Classical bag-of-words and TF-IDF representations do not capture complex long-range syntactic nuances or word re-ordering beyond the defined n-gram window.
-- **Out-of-Vocabulary Terms**: Words not present in the training vocabulary are ignored during inference.
-- **CFPB Narrative Publication Policy**: Under the CFPB's public disclosure policy, newer complaint records undergo redaction review before consumer narratives become publicly accessible. The system gracefully handles metadata-only records.
-- **Temporal Confounding**: Without complaint filing dates as explicit input features, a text-only classifier operating on historical data will face Bayes error induced by administrative label synonymy.
+1. **Bag-of-Words & N-Gram Contextual Bounds**: Classical TF-IDF feature representations do not capture long-range syntactic dependencies or semantic word order changes beyond the defined n-gram window.
+2. **Out-of-Vocabulary Terms**: Words completely absent from the training vocabulary receive zero weight during inference, though this is mitigated by character 3-5 n-gram subword modeling.
+3. **CFPB Disclosure Delays**: Under CFPB narrative disclosure rules, consumer narratives undergo an administrative redaction and review period before publication. The system handles metadata-only records gracefully.
+4. **Administrative Label Synonymy**: Without filing timestamps as input features, a text-only classifier operating on historical CFPB data faces an irreducible error ceiling (~30% error rate on 18 classes) caused by historical administrative label redesigns.
 
 ---
 
-## Dataset & API Sources
+## Future Scope
 
-- **CFPB Consumer Complaint Database**:
-  [https://www.consumerfinance.gov/data-research/consumer-complaints/](https://www.consumerfinance.gov/data-research/consumer-complaints/)
-- **CFPB Complaint Search API v1**:
-  [https://www.consumerfinance.gov/data-research/consumer-complaints/search/api/v1/](https://www.consumerfinance.gov/data-research/consumer-complaints/search/api/v1/)
+1. **Sublinear Sparse Indexing**: Integrating approximate nearest neighbor algorithms (such as HNSW or Annoy) for sub-millisecond cosine similarity retrieval across millions of complaints.
+2. **Hierarchical Multi-Level Classification**: Predicting primary product families first, followed by specialized sub-product classifications to mirror financial intake routing workflows.
+3. **Automated Concept Drift Monitoring**: Tracking lexical and statistical distribution shifts across complaint intake quarters to identify emerging consumer finance risks.
+4. **Streaming Data Ingestion**: Building background ingestion pipelines from the official CFPB API into local storage (SQLite/PostgreSQL) with automated deduplication.
+5. **Multilingual Preprocessing Support**: Extending preprocessing routines to support Spanish-language complaint narratives filed with the CFPB.
+
+---
+
+## Contributors
+
+- **Author & Maintainer**: Ashwin Chhawaniya ([Java-Mx](https://github.com/Java-Mx))
+- **Repository**: [https://github.com/Java-Mx/Customer-Complaint-NLP](https://github.com/Java-Mx/Customer-Complaint-NLP)
+- **License**: Released under the [MIT License](LICENSE).
