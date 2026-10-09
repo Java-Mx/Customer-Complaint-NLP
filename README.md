@@ -1065,6 +1065,26 @@ This confirms that the increase in accuracy from ~70% to ~82% is primarily drive
 
 ---
 
+## Key Takeaways
+
+This project demonstrates that traditional machine-learning approaches can be effective for structured customer complaint analysis when combined with appropriate text representation, class-imbalance handling, and careful evaluation.
+
+An important finding of the project is that classification performance is influenced not only by the model and features, but also by how complaint categories are defined. The taxonomy analysis therefore forms an important part of the project rather than treating the category labels as fixed.
+
+The system is designed as a decision-support tool to assist complaint analysis and categorisation, not as a replacement for human review.
+
+--
+
+## Key Takeaways
+
+One of the main things we learned from this project is that customer complaints can be analyzed using traditional NLP and machine-learning techniques.
+
+Using both word and character TF-IDF helped us represent the complaint text in more detail. We also looked at class imbalance and used error analysis to understand where the model was making mistakes.
+
+An interesting part of the project was looking at the complaint categories themselves. Some categories were very similar or had changed over time, which affected the model's results. This showed us that the way the categories are defined can have a big impact on classification performance.
+
+The final system is meant to help with complaint analysis and categorisation. It is a decision-support system and is not intended to replace human review.
+
 ## Contributors
 
 - **Author & Maintainer**: Ashwin Chhawaniya ([Java-Mx](https://github.com/Java-Mx))
