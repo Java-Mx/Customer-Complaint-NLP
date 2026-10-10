@@ -1044,6 +1044,19 @@ $$\text{Total Error Reduction} = \Delta_{\text{mechanical collapse}} + \Delta_{\
 
 This confirms that the increase in accuracy from ~70% to ~82% is primarily driven by resolving administrative label synonymy in the task definition rather than superior classifier generalization.
 
+10 categories — Broad v2
+The Broad v2 taxonomy merges Consumer Loan into Consumer & Small Dollar Loans. The other categories remain the same:
+1. Credit Reporting & Repair
+2. Credit Card & Prepaid
+3. Banking Accounts
+4. Money Transfer & Services
+5. Consumer & Small Dollar Loans
+6. Vehicle Finance
+7. Mortgage
+8. Student Loan
+9. Debt Collection
+10. Other Financial Service
+    
 ---
 
 ## Limitations
