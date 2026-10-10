@@ -1,89 +1,89 @@
 # Model Card: CFPB Customer Complaint Classification
 
-## Model Overview
+## 1. Model Details
 
-This project uses classical Natural Language Processing (NLP) to automatically classify CFPB consumer complaints into financial product categories.
+| Field | Description |
+|---|---|
+| Model name | CFPB Complaint Classifier |
+| Task | Multi-class classification of consumer financial complaints into CFPB product categories |
+| Model | Word + character TF-IDF features combined with class-balanced Logistic Regression (`C=2.0`, `solver='lbfgs'`) |
+| Training data | CFPB Consumer Complaint Database; 25,000 complaint records across 18 original product categories |
+| Data split | 20,000-record training pool; internally split into 16,000 training and 4,000 validation records; 5,000-record untouched holdout test set |
+| Preprocessing | Text cleaning, lowercasing, URL/email and noise removal, CFPB redaction handling, whitespace normalization, tokenization, and stopword removal; numeric information is retained |
+| Feature configuration | Word TF-IDF unigrams `(1, 1)` plus character TF-IDF n-grams `(3, 5)`; 114,493 combined sparse features |
+| Libraries | Python, scikit-learn, SciPy, joblib, Streamlit |
+| Developed by | Customer Complaint NLP project team, NLP course, October 2026 |
 
-**Model:** Logistic Regression
-**Features:** Combined Word + Character TF-IDF
-**Dataset:** 25,000 CFPB consumer complaints
-**Classes:** 18 original product categories
-**Training/Test Split:** 80% training, 20% test
-**Framework:** Python, scikit-learn
+## 2. Intended Use
 
-## Performance
+- **Intended:** Educational demonstration of classical NLP; automatic first-pass categorization of CFPB consumer complaints; exploration of complaint patterns; and assistance with initial complaint triage.
+- **Out of scope:** Fully automated financial, legal, regulatory, or customer-impact decisions; replacing a human reviewer; treating predicted category/confidence as authoritative; and using the model as professional financial or legal advice.
 
-| Metric          |      Score |
-| --------------- | ---------: |
-| Accuracy        | **69.56%** |
-| Macro F1        | **50.56%** |
-| Weighted F1     | **69.55%** |
-| Macro Precision | **49.67%** |
-| Macro Recall    | **51.97%** |
+## 3. Overall Performance
 
-The model performs substantially better on common categories than on very small minority categories.
+On the 5,000-record untouched holdout test set, the current production configuration achieved **69.82% accuracy**, **50.88% macro-F1**, and **69.78% weighted-F1**. The lower macro-F1 compared with weighted-F1 indicates that performance is less consistent across rare categories than across the dataset as a whole.
 
-## Performance Across Text Subgroups
+| Metric | Score |
+|---|---:|
+| Accuracy | **69.82%** |
+| Macro-F1 | **50.88%** |
+| Weighted-F1 | **69.78%** |
+| Macro Precision | **50.41%** |
+| Macro Recall | **51.69%** |
 
-The error analysis showed different performance depending on the type of complaint:
+Evaluation used a stratified split with `random_state=42`. The 5,000-record holdout test set was kept out of model fitting and model selection.
 
-| Text subgroup/style                                     | Observed behavior                     |
-| ------------------------------------------------------- | ------------------------------------- |
-| Detailed complaints with clear product terminology      | Generally easier to classify          |
-| Short, vague, or overlapping complaints                 | More difficult to classify            |
-| Complaints involving closely related financial products | Frequent confusion between categories |
+## 4. Performance Across Text Subgroups
 
-For example, complaints involving credit reporting and credit cards can contain highly overlapping terms, making the distinction difficult for a TF-IDF-based classifier.
+The project’s error audit documents category-level and error-pattern differences. It does **not** report audited accuracy/F1 scores for the text-style subgroups below; these are qualitative observations, not measured subgroup metrics.
 
-## Simple Explainability Check
+| Subgroup / style | Observed behavior |
+|---|---|
+| Detailed complaints with clear product terminology | Generally easier to classify when the text contains distinctive product terms |
+| Short, vague, or overlapping complaints | More difficult when the narrative provides few distinguishing terms |
+| Complaints involving closely related financial products | Frequent confusion between labels with overlapping vocabulary |
+| Complaints involving historical CFPB label variants | Confusion occurs between related labels retained from different taxonomy periods |
 
-The model uses TF-IDF features, so its predictions can be inspected through the features that receive high weights.
+**Key audit finding:** The leading confusion groups in the reference 18-category error analysis were credit-reporting labels (**314** bidirectional confusions), card/prepaid labels (**148**), and banking-account labels (**121**). These counts show that closely related and historically revised product labels are a material source of error. They are from the 18-category reference-model error analysis, not the newer production configuration’s reported per-style subgroup scores.
 
-For an example complaint, important features included terms such as:
+## 5. Explainability Check
 
-* `resolved dispute`
-* `company resolved`
-* `dispute even`
-* `payment credit`
-* `credit card`
+**Method: Inspect active TF-IDF features and model outputs.** Because Logistic Regression is a linear classifier over TF-IDF features, its class-specific coefficients and the active TF-IDF features for a complaint can be inspected to understand which text patterns influence a prediction.
 
-These features provide an interpretable indication of which words and phrases contributed to the classification decision.
+For one example complaint shown in the project’s live demo — “I noticed a payment on my credit card that I did not make, and the company has not resolved my dispute even after I contacted them.” — the displayed active features included:
 
-## Main Limitation
+- `resolved dispute`
+- `company resolved`
+- `make company`
+- `dispute even`
+- `noticed payment`
+- `payment credit`
+- `credit card`
 
-The model struggles with **minority categories and highly similar product categories**.
+These are examples of active features in the input representation, not a verified ranking of class-specific Logistic Regression coefficients. A feature being active does not, on its own, prove that it pushed the prediction toward a particular class; contribution direction depends on the predicted class’s learned coefficients. The app also displays a model confidence score, which should not be interpreted as calibrated probability or prediction accuracy.
 
-Some categories have very few examples in the dataset, making it difficult for the classifier to learn reliable patterns. The model can also confuse historically related CFPB categories, such as:
+## 6. Limitations and Ethical Considerations
 
-* `Credit card` vs. `Credit card or prepaid card`
-* `Credit reporting` vs. `Credit reporting, credit repair services, or other personal consumer reports`
-* `Bank account or service` vs. `Checking or savings account`
+- **Minority-category performance:** Very small classes have limited examples, making reliable patterns difficult to learn. In the reference error audit, `Virtual currency` had one test example and `Other financial service` had five; neither was correctly classified in that audit. These figures illustrate the sparse-class issue and are not claimed as current-production per-class results.
+- **Closely related labels:** The model confuses categories with overlapping terminology and historical CFPB label variants, including credit reporting, credit card/prepaid card, and bank-account labels.
+- **Bag-of-features limitation:** TF-IDF represents lexical patterns rather than deep contextual meaning. Similar wording across financial products can make categories hard to distinguish.
+- **Confidence limitations:** Logistic Regression confidence scores are not necessarily calibrated probabilities.
+- **Taxonomy trade-off:** Normalizing the 18 original categories into 11 conservative or 10 broad groups can improve aggregate scores, but merges distinctions and loses some regulatory/product detail. These taxonomy experiments are separate from the current 18-category production model.
+- **Human review:** Predictions should support, not replace, human complaint review, especially for rare, ambiguous, or high-impact cases.
 
-Therefore, the model should be treated as a **classification assistance system**, not as a replacement for human review.
+## 7. Recommendations
 
-## Intended Use
+- Route ambiguous or low-confidence predictions to a human reviewer rather than treating the predicted category as definitive.
+- Monitor per-category precision, recall, F1, support, and confusion pairs; report subgroup metrics only after defining subgroups and evaluating them on held-out data.
+- Consider taxonomy normalization only when the intended use supports merging labels; document any product/regulatory distinctions lost by doing so.
+- Re-evaluate the model on a fresh, representative holdout sample when the CFPB data, label definitions, or deployment context changes.
+- Preserve the classical NLP constraint for the current project: TF-IDF feature extraction, cosine similarity for retrieval, and Logistic Regression for classification.
 
-The model is intended for:
+---
 
-* Automatic complaint category prediction
-* Demonstrating classical NLP classification
-* Exploring patterns in CFPB consumer complaints
-* Assisting with initial complaint routing
+**License:** The repository’s original software is released under the MIT License. The CFPB dataset is a separate data source and is subject to the CFPB’s applicable data policies.
 
-It is **not intended for making financial, legal, regulatory, or customer-impact decisions without human verification.**
+**Disclaimer:** This is an academic NLP system for educational and research purposes. Predictions can be incorrect, particularly for rare and closely related categories. Outputs are not financial, legal, or regulatory advice and should not be used for consequential decisions without human verification.
 
-## Technology Used
-
-* **TF-IDF:** Converts complaint text into numerical features.
-* **Word n-grams:** Capture important words and short phrases.
-* **Character n-grams:** Capture subword patterns and spelling variations.
-* **Logistic Regression:** Performs multi-class classification.
-* **Cosine Similarity:** Retrieves historically similar complaints.
-
-## License
-
-This project is released under the **MIT License**.
-
-## Disclaimer
-
-This project is an academic NLP system developed for educational and research purposes. Predictions are generated automatically and may be incorrect, particularly for minority classes and closely related categories. Model outputs should not be considered professional financial, legal, or regulatory advice.
+**Project:** [Customer Complaint Similarity & Categorisation](https://github.com/Java-Mx/Customer-Complaint-NLP)  
+**Dataset source:** [CFPB Consumer Complaint Database](https://www.consumerfinance.gov/data-research/consumer-complaints/)
